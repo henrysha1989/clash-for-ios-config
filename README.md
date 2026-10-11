@@ -123,6 +123,9 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
 
 ## 改动记录
 
+- **2026-10-11**：Gemini 规则集从 `cdn.jsdelivr.net` 直连改走自建加速前缀（jsdelivr 在国内
+  TLS 握手失败，App 里报「Gemini: TLS 错误导致安全连接失败」）。**内容不变**（blackmatrix7 同仓库同文件，
+  只换投递路径）。至此 7 个规则集全部走加速站 —— 第三方 CDN 在国内不可靠，新加规则集时别用。
 - **2026-10-11**：**修 IPv6 泄漏**。原文件 `ipv6: false` + `dns.ipv6: false`（继承自模板），
   导致内核清空 `tun.inet6-address`、App 声明 `applied=false`，隧道不含 v6 ⇒ 手机的 IPv6 流量与
   v6 DNS 全走物理链路（browserleaks 实测混入运营商解析器）。改为 `ipv6: true` + `dns.ipv6: true`，

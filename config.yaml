@@ -326,7 +326,10 @@ rule-providers:
     behavior: classical
     format: text        # blackmatrix7 的 .list 是纯文本规则行，不是 `payload:` YAML，必须写 text
     interval: 86400
-    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Gemini/Gemini.list"
+    # 原来走 cdn.jsdelivr.net 直连 —— 国内会 TLS 握手失败（App 里报
+    # 「Gemini: TLS 错误导致安全连接失败」）。改成 GitHub raw + 自建加速前缀，
+    # 与其余 6 个规则集一致；规则内容不变（同仓库同文件，只是换投递路径）。
+    url: "https://git.521989.xyz/https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Gemini/Gemini.list"
     path: ./rules/Gemini.list
 
   # ---- 自建拦截表（shadowrocket-adr-rules 的 clash-ios 分支，已去掉策略列）----
