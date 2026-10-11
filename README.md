@@ -9,16 +9,22 @@ iOS 端 **Clash**（[ProjectClash/Clash-Client](https://github.com/ProjectClash/
 
 | 文件 | 说明 |
 |---|---|
-| `config.yaml` | 主配置：TUN + fake-ip DNS + 8 个策略组 + 54 条分流规则 |
+| `config.yaml` | 主配置：TUN + fake-ip DNS + 8 个策略组 + 47 条分流规则 + 7 个远程规则集 |
+| `qr/accelerator.png` | 导入地址的二维码（扫码用） |
 
-订阅地址（客户端里「配置 → 添加 → 从 URL 导入」）：
+## 导入
+
+客户端里「配置 → 添加 → 从 URL 导入」，填**加速地址**：
 
 ```
-https://raw.githubusercontent.com/henrysha1989/clash-for-ios-config/main/config.yaml
+https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/clash-for-ios-config/main/config.yaml
 ```
 
-国内直连超时可换自建加速前缀（`https://git.521989.xyz/` + 上面的完整地址）。
-注意 raw 有 CDN 缓存，改完不一定立刻生效。
+![扫码导入](qr/accelerator.png)
+
+扫码就是上面这条加速地址（600×600，反解验证过内容一致）。自建加速站走 GitHub Contents API，
+响应头是 `cache-control: no-store` + `cf-cache-status: BYPASS` ⇒ **推完立刻可见**，
+没有 raw 那种十几分钟 CDN 延迟。不想走加速站时，把开头的 `https://git.521989.xyz/` 去掉即可。
 
 ## 配置与节点分开管理
 
