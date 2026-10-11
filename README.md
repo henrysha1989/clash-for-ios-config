@@ -9,7 +9,7 @@ iOS 端 **Clash**（[ProjectClash/Clash-Client](https://github.com/ProjectClash/
 
 | 文件 | 说明 |
 |---|---|
-| `config.yaml` | 主配置：TUN + fake-ip DNS + 8 个策略组 + 47 条分流规则 + 7 个远程规则集 |
+| `config.yaml` | 主配置：TUN + fake-ip DNS + 5 个策略组 + 47 条分流规则 + 7 个远程规则集 |
 | `qr/accelerator.png` | 导入地址的二维码（扫码用） |
 
 ## 导入
@@ -45,6 +45,13 @@ https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/clash-for-
 
 也可以用 `use: [名称]` 点名引用某个 provider。于是加节点、换订阅、开关某个节点源，
 都不用动这个文件 —— 这也是它敢放在公开仓库的原因。
+
+```yaml
+    # 两个 include-all 组都带这条：滤掉机场塞在订阅里的"信息假节点"
+    # （剩余流量 / 套餐到期 / 距离下次重置剩余 …）。它们测速还能"通过"，
+    # 一旦被自动选择选中就是个废出口——只返回一个说明页。
+    exclude-filter: '(?i)(剩余|到期|重置|官网|订阅|流量|距离|套餐|过期|expire|traffic|website|通知)'
+```
 
 > 桌面 mihomo（Clash Verge 等）没有这套「节点来源」，那时才需要在文件里自己配
 > `proxies:` 或 `proxy-providers:`；**带订阅地址的副本不要推到本仓库**。
@@ -126,6 +133,10 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
 
 ## 改动记录
 
+- **2026-10-11**：精简分组 + 过滤无效节点。删掉与 `节点选择` 完全等价的 `国外代理` 组（16 条规则
+  改指 `节点选择`，默认行为不变），**策略组 6 → 5**：节点选择 / 手动选择 / 自动选择 / 国内直连 / 漏网之鱼。
+  给 `手动选择`、`自动选择` 加 `exclude-filter`，按名字滤掉机场的信息假节点
+  （拿 50 个真实节点名验证：精确排除 4 个假节点、46 个真节点零误伤）。
 - **2026-10-11**：删除 `AI 美国` / `AI 自动(美区)` 两个分组（App 里显示「URLTEST · 无节点」，
   地区 filter 匹配不到任何节点 ⇒ 组内只剩 COMPATIBLE≈直连，反而把 Gemini 送去直连）。
   Gemini 的三条规则改指 `国外代理`。分组 8 → 6 个。

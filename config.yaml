@@ -230,7 +230,7 @@ proxies: []
 #       lazy: true
 
 # ------------------------------------------------------------------------------
-# 7. 策略组（全部 include-all，节点 / 订阅怎么变都不用改这里）
+# 7. 策略组（只在「手动选择 / 自动选择」上用 include-all，节点 / 订阅怎么变都不用改这里）
 # ------------------------------------------------------------------------------
 proxy-groups:
   - name: 节点选择
@@ -243,22 +243,18 @@ proxy-groups:
   - name: 手动选择
     type: select
     include-all: true
+    # 机场会把「剩余流量 / 套餐到期 / 距离下次重置剩余」这类公告塞成假节点，
+    # 它们测速还能"通过"，一旦被自动选择选中就是废出口（只返回一个说明页）。这里按名字滤掉。
+    exclude-filter: '(?i)(剩余|到期|重置|官网|订阅|流量|距离|套餐|过期|expire|traffic|website|通知)'
 
   - name: 自动选择
     type: url-test
     include-all: true
+    exclude-filter: '(?i)(剩余|到期|重置|官网|订阅|流量|距离|套餐|过期|expire|traffic|website|通知)'
     url: http://www.gstatic.com/generate_204
     interval: 600
     tolerance: 100
     lazy: true
-
-  - name: 国外代理
-    type: select
-    proxies:
-      - 节点选择
-      - 自动选择
-      - 手动选择
-      - DIRECT
 
   - name: 国内直连
     type: select
@@ -388,33 +384,33 @@ rules:
   - RULE-SET,RejectCustom,REJECT
 
   # ===== 6. 泄漏测试工具走代理 =====
-  - DOMAIN-KEYWORD,browserleaks,国外代理
-  - DOMAIN-KEYWORD,ipleak,国外代理
+  - DOMAIN-KEYWORD,browserleaks,节点选择
+  - DOMAIN-KEYWORD,ipleak,节点选择
 
   # ===== 7. AI 服务（只保留 Gemini 规则集；必须排在 GEOSITE,google 前面）=====
   # 原「AI 美国 / AI 自动(美区)」分组已删除：订阅节点名不带地区标记 ⇒ filter 一个都匹配不到
   # ⇒ 组内只剩 COMPATIBLE(≈直连)，等于把 Gemini 送直连（App 里显示「URLTEST · 无节点」）。
-  # 现在直接交给「国外代理」，走你自己选的节点。
-  - RULE-SET,Gemini,国外代理
-  - DOMAIN-SUFFIX,gemini.google.com,国外代理       # 规则集没拉下来时的兜底
-  - DOMAIN-SUFFIX,aistudio.google.com,国外代理
+  # 现在直接交给「节点选择」，走你自己选的节点。
+  - RULE-SET,Gemini,节点选择
+  - DOMAIN-SUFFIX,gemini.google.com,节点选择       # 规则集没拉下来时的兜底
+  - DOMAIN-SUFFIX,aistudio.google.com,节点选择
   # OpenAI / Claude / Perplexity 等已按需移除；要用别的厂商时在这里补回对应域名
 
   # ===== 8. 海外专项 =====
-  - GEOSITE,youtube,国外代理
-  - GEOSITE,google,国外代理
-  - GEOSITE,telegram,国外代理
-  - GEOSITE,twitter,国外代理
-  - GEOSITE,facebook,国外代理
-  - GEOSITE,github,国外代理
-  - DOMAIN-SUFFIX,proton.me,国外代理
-  - DOMAIN-SUFFIX,protonmail.com,国外代理
-  - DOMAIN-SUFFIX,pinterest.com,国外代理
+  - GEOSITE,youtube,节点选择
+  - GEOSITE,google,节点选择
+  - GEOSITE,telegram,节点选择
+  - GEOSITE,twitter,节点选择
+  - GEOSITE,facebook,节点选择
+  - GEOSITE,github,节点选择
+  - DOMAIN-SUFFIX,proton.me,节点选择
+  - DOMAIN-SUFFIX,protonmail.com,节点选择
+  - DOMAIN-SUFFIX,pinterest.com,节点选择
 
   # Telegram DC 网段：防纯域名解析被直连拖到转圈
   # 91.108.0.0/18 一次覆盖原来的 4/8/12/16/56 五个 /22
-  - IP-CIDR,91.108.0.0/18,国外代理,no-resolve
-  - IP-CIDR,149.154.160.0/20,国外代理,no-resolve
+  - IP-CIDR,91.108.0.0/18,节点选择,no-resolve
+  - IP-CIDR,149.154.160.0/20,节点选择,no-resolve
 
   # ===== 9. 国内兜底 =====
   - GEOSITE,CN,国内直连
