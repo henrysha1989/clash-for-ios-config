@@ -1,0 +1,49 @@
+# ============================================================
+# Clash / mihomo for iOS —— 配置骨架（占位版）
+# 仓库：henrysha1989/clash-for-ios-config
+#
+# ⚠️ 这是骨架，不是可用配置：proxies 为空，必须自己填节点。
+#    本仓库公开 —— 节点 / UUID / 密码 / 私密订阅地址 **不要** 提交进来。
+# ============================================================
+
+# --- 基础 ---
+mixed-port: 7890
+allow-lan: false
+mode: rule
+log-level: info
+ipv6: false
+unified-delay: true
+tcp-concurrent: true
+
+# --- DNS（先用最小可用集，避免和 iOS 系统 DNS 打架）---
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+
+# --- 节点（占位：自己填，或由客户端订阅导入）---
+proxies: []
+# 例：
+#   - name: "示例节点"
+#     type: ss
+#     server: 1.2.3.4
+#     port: 8388
+#     cipher: aes-128-gcm
+#     password: "REPLACE_ME"
+
+# --- 分组 ---
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:
+      - DIRECT
+      # - 示例节点
+
+# --- 规则（占位：先全走 PROXY，之后再细拆分流）---
+rules:
+  - GEOIP,CN,DIRECT
+  - MATCH,PROXY
