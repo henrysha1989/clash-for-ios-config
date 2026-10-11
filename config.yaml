@@ -287,7 +287,7 @@ proxy-groups:
     lazy: true
 
 # ------------------------------------------------------------------------------
-# 8. 远程规则集（MRS 二进制，比文本规则快很多；同样走加速前缀）
+# 8. 远程规则集（公开大表用 MRS 二进制；自建小表用 classical 文本；都走加速前缀）
 # ------------------------------------------------------------------------------
 rule-providers:
   BlockHttpDNS:
@@ -321,6 +321,33 @@ rule-providers:
     interval: 86400
     url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Gemini/Gemini.list"
     path: ./rules/Gemini.list
+
+  # ---- 自建拦截表（shadowrocket-adr-rules 的 clash-ios 分支，已去掉策略列）----
+  # 为什么不用 MRS：iOS 内核的 MRS 只支持 domain / ipcidr 两种 behavior，装不下混合类型
+  # （详见该分支 mihomo/README.md）。这三张表共 288 条，也用不上 MRS 的性能收益。
+  ByteDanceAd:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    url: "https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/shadowrocket-adr-rules/clash-ios/mihomo/bytedance-ad.list"
+    path: ./rules/bytedance-ad.list
+
+  SoulAd:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    url: "https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/shadowrocket-adr-rules/clash-ios/mihomo/soul-ad.list"
+    path: ./rules/soul-ad.list
+
+  RejectCustom:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    url: "https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/shadowrocket-adr-rules/clash-ios/mihomo/reject-custom.list"
+    path: ./rules/reject-custom.list
 
 # ------------------------------------------------------------------------------
 # 9. 分流规则（命中即停，顺序 = 优先级）
@@ -362,27 +389,25 @@ rules:
   - DOMAIN-SUFFIX,megarobo.tech,国内直连
   - DOMAIN-SUFFIX,megarobo.info,国内直连
 
-  # ===== 5. 泄漏测试工具走代理 =====
+  # ===== 5. 自建拦截表（放在自建直连之后：自家域名 / 直连优先，避免误拦）=====
+  # 来源：shadowrocket-adr-rules 的 clash-ios 分支（main 三张表去掉策略列生成）。
+  # 动作用 REJECT：小火箭那边必须写 REJECT-DROP 是它的 SDK 重连问题，mihomo 没这毛病；
+  # 真要静默丢包，把这三行的 REJECT 改成 REJECT-DROP 即可。
+  - RULE-SET,ByteDanceAd,REJECT
+  - RULE-SET,SoulAd,REJECT
+  - RULE-SET,RejectCustom,REJECT
+
+  # ===== 6. 泄漏测试工具走代理 =====
   - DOMAIN-KEYWORD,browserleaks,国外代理
   - DOMAIN-KEYWORD,ipleak,国外代理
 
-  # ===== 6. AI 服务（走美区；必须排在 GEOSITE,google 前面）=====
+  # ===== 7. AI 服务（只保留 Gemini 规则集；走美区，必须排在 GEOSITE,google 前面）=====
   - RULE-SET,Gemini,AI 美国
   - DOMAIN-SUFFIX,gemini.google.com,AI 美国       # 规则集没拉下来时的兜底
   - DOMAIN-SUFFIX,aistudio.google.com,AI 美国
-  - DOMAIN-SUFFIX,openai.com,AI 美国
-  - DOMAIN-SUFFIX,chatgpt.com,AI 美国
-  - DOMAIN-SUFFIX,oaistatic.com,AI 美国
-  - DOMAIN-SUFFIX,oaiusercontent.com,AI 美国
-  - DOMAIN-SUFFIX,anthropic.com,AI 美国
-  - DOMAIN-SUFFIX,claude.ai,AI 美国
-  - DOMAIN-SUFFIX,perplexity.ai,AI 美国
-  - DOMAIN-SUFFIX,x.ai,AI 美国
-  - DOMAIN-SUFFIX,midjourney.com,AI 美国
-  - DOMAIN-SUFFIX,poe.com,AI 美国
-  # 用不到的整行删掉即可
+  # OpenAI / Claude / Perplexity 等已按需移除；要用别的厂商时在这里补回对应域名
 
-  # ===== 7. 海外专项 =====
+  # ===== 8. 海外专项 =====
   - GEOSITE,youtube,国外代理
   - GEOSITE,google,国外代理
   - GEOSITE,telegram,国外代理
@@ -398,9 +423,9 @@ rules:
   - IP-CIDR,91.108.0.0/18,国外代理,no-resolve
   - IP-CIDR,149.154.160.0/20,国外代理,no-resolve
 
-  # ===== 8. 国内兜底 =====
+  # ===== 9. 国内兜底 =====
   - GEOSITE,CN,国内直连
   - GEOIP,CN,国内直连,no-resolve
 
-  # ===== 9. 未命中流量兜底 =====
+  # ===== 10. 未命中流量兜底 =====
   - MATCH,漏网之鱼
