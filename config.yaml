@@ -1,49 +1,397 @@
-# ============================================================
-# Clash / mihomo for iOS —— 配置骨架（占位版）
-# 仓库：henrysha1989/clash-for-ios-config
-#
-# ⚠️ 这是骨架，不是可用配置：proxies 为空，必须自己填节点。
-#    本仓库公开 —— 节点 / UUID / 密码 / 私密订阅地址 **不要** 提交进来。
-# ============================================================
+# ==============================================================================
+#  Mihomo / Clash 配置 —— iOS 手机优先（Clash App · Hako-mihomo 内核 · TUN）
+# ------------------------------------------------------------------------------
+#  仓库：https://github.com/henrysha1989/clash-for-ios-config
+#  ⚠️ 公开仓库：本文件不含任何节点、订阅地址或凭据 —— 请勿往里填。
+# ------------------------------------------------------------------------------
+#  使用说明
+#   1) 节点来源二选一：
+#      ① 直接把节点粘到第 6 节的 `proxies:`
+#      ② 或打开第 6 节注释里的 `proxy-providers:` 订阅块，填自己的订阅地址
+#         （⚠️ 填了之后**不要再推到公开仓库**，本地留一份即可）
+#      策略组全部 include-all，加节点 / 换订阅都不用改 group。
+#   2) 未填节点时配置仍能启动：空组会回退成内置 COMPATIBLE（≈直连），
+#      所以先填好节点再开 TUN，避免"以为在代理其实在裸奔"。
+#   3) 标了【个人定制区】的段落（自建服务 / 公司域名 / 加速前缀）换环境时整段删掉即可。
+# ------------------------------------------------------------------------------
+#  本文件按 iOS 内核的真实行为写过（核对来源：内核仓库 bind/clash/config_deviations.go，
+#  2026-10-11 对 v1.19.32-clash.1 核对）：
+#   · 下列键 iOS 端是「强制值」，本文件写的就跟强制值一致，因此不会在 App 里
+#     冒出偏差提示：dns.enable=true / tun.enable=true / find-process-mode=off /
+#     profile.store-fake-ip=true / unified-delay=true / tun.stack=gvisor。
+#   · tun.auto-route 与 tun.auto-detect-interface 在 iOS 上被强制 false
+#     （路由由 App 用 NEPacketTunnelNetworkSettings 装），故本文件写 false；
+#     同一份文件拿到 PC / mihomo 上用时，这两项要改回 true。
+#   · geo-auto-update / geo-update-interval / geox-url 由 **App** 读取并负责下载，
+#     扩展自身不下载。App 已内置一份 geo 数据（MetaCubeX/meta-rules-dat），
+#     这里配的是自建加速前缀，用于 App 侧更新。
+#   · keep-alive-idle / keep-alive-interval 刻意不写：内核 darwin 默认
+#     5 分钟 / 75 秒（component/keepalive/defaults_darwin.go），显式写 15 / 30
+#     会让蜂窝网络上的 TCP 保活探测过密、更费电。
+#   · 规则集用 MRS 二进制格式，内核基于 mihomo 1.19.x，支持。
+#   · iOS 上不可用的东西（写了也没用）：easytier、faketcp、redir、tproxy、
+#     tun.include-* / tun.exclude-*、iptables、clash-for-android。
+# ==============================================================================
 
-# --- 基础 ---
+# ------------------------------------------------------------------------------
+# 1. 基础运行设置（轻量、省电、防杀后台）
+# ------------------------------------------------------------------------------
 mixed-port: 7890
 allow-lan: false
 mode: rule
-log-level: info
+log-level: warning
 ipv6: false
-unified-delay: true
-tcp-concurrent: true
+unified-delay: true          # 延迟只算握手耗时，数值更接近真实体验
+tcp-concurrent: true         # 多 IP 并发拨号，优选最快的一个
+find-process-mode: 'off'     # 移动端不做进程匹配，省 CPU / 电
+# keep-alive-idle / keep-alive-interval 不写：走内核 darwin 默认（5 分钟 / 75 秒）。
+# 显式写 15 / 30（上游默认）会让蜂窝网络上的保活探测过密，更费电。
 
-# --- DNS（先用最小可用集，避免和 iOS 系统 DNS 打架）---
+# ------------------------------------------------------------------------------
+# 2. TUN 网络栈（切换 Wi-Fi / 蜂窝不断网，用户态栈不碰内核）
+# ------------------------------------------------------------------------------
+tun:
+  enable: true
+  stack: gvisor
+  auto-route: false                # iOS 强制 false：路由由 App 自己装（NEPacketTunnelNetworkSettings）
+  auto-detect-interface: false     # 同上；这两项只在 PC / mihomo 上才需要 true
+  strict-route: true
+  endpoint-independent-nat: true   # UDP 打洞 / 联机游戏 NAT 更友好
+  dns-hijack:
+    - any:53
+    - tcp://any:53
+
+# ------------------------------------------------------------------------------
+# 3. 状态持久化
+# ------------------------------------------------------------------------------
+profile:
+  store-selected: true       # 记住手动选择的节点
+  store-fake-ip: true        # 重启后 fake-ip 映射不丢，连接不错乱
+
+# ------------------------------------------------------------------------------
+# 4. 流量嗅探（QUIC 嗅探保持关闭，彻底放行阿里 / 钉钉与系统核心）
+# ------------------------------------------------------------------------------
+sniffer:
+  enable: true
+  force-dns-mapping: true
+  parse-pure-ip: true
+  sniff:
+    HTTP:
+      ports: [80, 8080-8880]
+      override-destination: true
+    TLS:
+      ports: [443, 8443]
+  skip-domain:
+    - '+.apple.com'            # 已覆盖 push.apple.com
+    - '+.dingtalk.com'
+    - '+.dingtalkapps.com'
+    - '+.laiwang.com'
+    - '+.alicdn.com'
+    - '+.tbcdn.cn'
+    - '+.megarobo.com'         # 【个人定制区】公司域名
+    - '+.megarobo.tech'
+    - '+.megarobo.info'
+
+# ------------------------------------------------------------------------------
+# 5. DNS（fake-ip + 分流解析；防泄漏、防 Apple 断流）
+#    Geo 数据走自建加速前缀下载，避免 raw.githubusercontent 拉取超时
+# ------------------------------------------------------------------------------
+geo-auto-update: true
+geo-update-interval: 168
+geox-url:                      # 【个人定制区】加速前缀，换环境可改回官方地址
+  geoip: "https://git.521989.xyz/https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat"
+  geosite: "https://git.521989.xyz/https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat"
+  mmdb: "https://git.521989.xyz/https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb"
+  asn: "https://git.521989.xyz/https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/GeoLite2-ASN.mmdb"
+
 dns:
   enable: true
+  listen: 127.0.0.1:1053     # 只服务本机；要给局域网设备用改成 0.0.0.0:1053
   ipv6: false
+  respect-rules: true        # DNS 查询本身也走 rules：境外 DoH 经代理出去，不裸奔
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
-  nameserver:
+  use-hosts: true
+
+  default-nameserver:        # 只能写纯 IP，用于解析下面那些 DoH 的主机名
     - 223.5.5.5
     - 119.29.29.29
 
-# --- 节点（占位：自己填，或由客户端订阅导入）---
-proxies: []
-# 例：
-#   - name: "示例节点"
-#     type: ss
-#     server: 1.2.3.4
-#     port: 8388
-#     cipher: aes-128-gcm
-#     password: "REPLACE_ME"
+  proxy-server-nameserver:   # 专门解析代理服务器域名，避免鸡生蛋
+    - https://223.5.5.5/dns-query
+    - https://119.29.29.29/dns-query
 
-# --- 分组 ---
+  direct-nameserver:         # 直连流量用国内 DNS，国内查询不走境外
+    - https://dns.alidns.com/dns-query   # 2026-10-04 起自建 DoH（doh.521989.xyz）已下线，改阿里 DoH
+    - 223.5.5.5
+    - 119.29.29.29
+
+  nameserver:                # 兜底解析器：境外 DoH（respect-rules 下经代理出去）
+    - https://dns.cloudflare.com/dns-query
+    - https://dns.google/dns-query
+
+  nameserver-policy:
+    # 苹果服务与系统推送强制国内公共 DNS，解决 DNS 挂死与证书异常
+    # geosite:apple 已覆盖 apple.com / icloud.com / itunes / ls 等子域
+    'geosite:apple':
+      - 223.5.5.5
+      - 119.29.29.29
+    '+.icloud.com':
+      - 223.5.5.5
+      - 119.29.29.29
+    # 国内域名：优先阿里 DoH，回落阿里 / 腾讯公共 DNS
+    'geosite:cn':
+      - https://dns.alidns.com/dns-query
+      - 223.5.5.5
+    # DoH 服务器自身走纯 IP，跳过 bootstrap
+    'dns.cloudflare.com': [1.1.1.1, 1.0.0.1]
+    'dns.google': [8.8.8.8, 8.8.4.4]
+
+  fallback:
+    - https://1.1.1.1/dns-query
+    - https://8.8.8.8/dns-query
+  fallback-lazy-query: true  # 主解析没被判污染就不查 fallback，省流量
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
+      - 127.0.0.0/8
+      - 0.0.0.0/32
+
+  fake-ip-filter:
+    - '+.521989.xyz'           # 【个人定制区】自建加速站 / 仓库域名
+    - '+.lan'
+    - '+.local'
+    - '+.msftconnecttest.com'
+    - '+.msftncsi.com'
+    - 'speedtest.net'
+    # 苹果（+.apple.com 已覆盖 captive.apple.com / push / itunes / ls 子域）
+    - '+.apple.com'
+    - '+.icloud.com'
+    # 微信 / 腾讯生态
+    - '+.weixin.com'
+    - '+.wechat.com'
+    - '+.qq.com'
+    - '+.tencent.com'
+    # 抖音 / 字节跳动
+    - '+.douyin.com'
+    - '+.douyincdn.com'
+    - '+.douyinpic.com'
+    - '+.amemv.com'
+    - '+.snssdk.com'
+    - '+.zijieapi.com'
+    - '+.byteimg.com'
+    - '+.ibytedtos.com'
+    # 钉钉 / 阿里
+    - '+.dingtalk.com'
+    - '+.dingtalkapps.com'
+    - '+.laiwang.com'
+    - '+.alicdn.com'
+    - '+.tbcdn.cn'
+    # 企业自用域名【个人定制区】
+    - '+.megarobo.com'
+    - '+.megarobo.tech'
+    - '+.megarobo.info'
+
+# ------------------------------------------------------------------------------
+# 6. 节点来源（模板默认留空，二选一）
+# ------------------------------------------------------------------------------
+# 方式 A：直接粘贴节点（保持 [] 也行，与订阅共存不冲突）
+proxies: []
+
+# 方式 B：机场订阅 —— 取消注释并填自己的地址
+# proxy-providers:
+#   Primary-VPS:
+#     type: http
+#     url: "https://你的订阅地址"
+#     path: ./providers/primary.yaml
+#     interval: 43200          # 12 小时更新一次
+#     health-check:
+#       enable: true
+#       url: http://www.gstatic.com/generate_204
+#       interval: 300
+#       lazy: true
+
+# ------------------------------------------------------------------------------
+# 7. 策略组（全部 include-all，节点 / 订阅怎么变都不用改这里）
+# ------------------------------------------------------------------------------
 proxy-groups:
-  - name: PROXY
+  - name: 节点选择
+    type: select
+    proxies:
+      - 自动选择
+      - 手动选择
+      - DIRECT
+
+  - name: 手动选择
+    type: select
+    include-all: true
+
+  - name: 自动选择
+    type: url-test
+    include-all: true
+    url: http://www.gstatic.com/generate_204
+    interval: 600
+    tolerance: 100
+    lazy: true
+
+  - name: 国外代理
+    type: select
+    proxies:
+      - 节点选择
+      - 自动选择
+      - 手动选择
+      - DIRECT
+
+  - name: 国内直连
     type: select
     proxies:
       - DIRECT
-      # - 示例节点
+      - 节点选择
 
-# --- 规则（占位：先全走 PROXY，之后再细拆分流）---
+  - name: 漏网之鱼
+    type: select
+    proxies:
+      - 节点选择
+      - DIRECT
+
+  # ---- AI 分组：地区固定美国 ----
+  # filter 只收节点名里带美国标记的节点（🇺🇸/美国/美区/US/洛杉矶…），
+  # (?<![a-z])us(?![a-z]) 是为了不误吃 Australia / Russia 这类名字。
+  # 如果你的订阅节点名完全不带地区标记，这里会一个都匹配不到 →
+  # 组内会回退成 COMPATIBLE(≈直连)，那就把 filter 删掉改成手动选美区节点。
+  - name: AI 美国
+    type: select
+    proxies:
+      - AI 自动(美区)
+      - 手动选择          # 逃生口：手选的节点不保证美区，AI 可能因此被区域限制
+      - DIRECT
+
+  - name: AI 自动(美区)
+    type: url-test
+    include-all: true
+    filter: '(?i)美|(?<![a-z])us(?![a-z])|united ?states|los ?angeles|san ?jose|santa ?clara|seattle|dallas|chicago|new ?york|miami|phoenix|ashburn|atlanta|portland|las ?vegas|silicon ?valley|洛杉矶|圣何塞|西雅图|达拉斯|芝加哥|纽约|迈阿密|凤凰城|亚特兰大|硅谷|加州'
+    url: http://www.gstatic.com/generate_204      # 想让测速更贴合 AI，可换成 https://gemini.google.com
+    interval: 300
+    tolerance: 50
+    lazy: true
+
+# ------------------------------------------------------------------------------
+# 8. 远程规则集（MRS 二进制，比文本规则快很多；同样走加速前缀）
+# ------------------------------------------------------------------------------
+rule-providers:
+  BlockHttpDNS:
+    type: http
+    behavior: domain
+    format: mrs
+    interval: 86400
+    url: https://git.521989.xyz/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/httpdns.mrs
+    path: ./rules/httpdns.mrs
+
+  Advertising_Domain:
+    type: http
+    behavior: domain
+    format: mrs
+    interval: 86400
+    url: https://git.521989.xyz/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ads-all.mrs
+    path: ./rules/advertising.mrs
+
+  Tesla:
+    type: http
+    behavior: domain
+    format: mrs
+    interval: 86400
+    url: https://git.521989.xyz/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/tesla.mrs
+    path: ./rules/tesla.mrs
+
+  Gemini:
+    type: http
+    behavior: classical
+    format: text        # blackmatrix7 的 .list 是纯文本规则行，不是 `payload:` YAML，必须写 text
+    interval: 86400
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Gemini/Gemini.list"
+    path: ./rules/Gemini.list
+
+# ------------------------------------------------------------------------------
+# 9. 分流规则（命中即停，顺序 = 优先级）
+# ------------------------------------------------------------------------------
 rules:
-  - GEOIP,CN,DIRECT
-  - MATCH,PROXY
+  # ===== 1. 广告 / HttpDNS 拦截 =====
+  - RULE-SET,BlockHttpDNS,REJECT
+  - RULE-SET,Advertising_Domain,REJECT
+
+  # ===== 2. WebRTC 穿透截断 =====
+  # ⚠ 会打断微信 / 腾讯会议 / Google Meet / Discord 的 P2P 音视频（退回中继或直接失败）
+  #   要开视频通话就把这 4 行整段注释掉
+  - DST-PORT,3478,REJECT
+  - DST-PORT,5349,REJECT
+  - DOMAIN-KEYWORD,stun,REJECT
+  - DOMAIN-KEYWORD,turn,REJECT
+
+  # ===== 3. 内网、本机与自建服务直连 =====
+  - GEOSITE,private,国内直连
+  - GEOIP,LAN,国内直连,no-resolve
+  - IP-CIDR,192.168.0.0/16,国内直连,no-resolve
+  - IP-CIDR,10.0.0.0/8,国内直连,no-resolve
+  - IP-CIDR,172.16.0.0/12,国内直连,no-resolve
+  - IP-CIDR,127.0.0.0/8,国内直连,no-resolve
+  - DOMAIN-SUFFIX,521989.xyz,国内直连      # 【个人定制区】
+
+  # ===== 4. 国内专项直连 =====
+  - RULE-SET,Tesla,国内直连
+  - GEOSITE,apple@cn,国内直连
+  - DOMAIN-SUFFIX,apple.com,国内直连        # geosite 分类漏网时兜底（含 itunes 等子域）
+  - DOMAIN-SUFFIX,icloud.com,国内直连
+  - GEOSITE,dingtalk,国内直连
+  - DOMAIN-SUFFIX,dingtalk.com,国内直连
+  - DOMAIN-SUFFIX,dingtalkapps.com,国内直连
+  - DOMAIN-SUFFIX,laiwang.com,国内直连
+  - GEOSITE,category-entertainment-cn,国内直连
+  # 公司核心业务系统【个人定制区】
+  - DOMAIN-SUFFIX,megarobo.com,国内直连
+  - DOMAIN-SUFFIX,megarobo.tech,国内直连
+  - DOMAIN-SUFFIX,megarobo.info,国内直连
+
+  # ===== 5. 泄漏测试工具走代理 =====
+  - DOMAIN-KEYWORD,browserleaks,国外代理
+  - DOMAIN-KEYWORD,ipleak,国外代理
+
+  # ===== 6. AI 服务（走美区；必须排在 GEOSITE,google 前面）=====
+  - RULE-SET,Gemini,AI 美国
+  - DOMAIN-SUFFIX,gemini.google.com,AI 美国       # 规则集没拉下来时的兜底
+  - DOMAIN-SUFFIX,aistudio.google.com,AI 美国
+  - DOMAIN-SUFFIX,openai.com,AI 美国
+  - DOMAIN-SUFFIX,chatgpt.com,AI 美国
+  - DOMAIN-SUFFIX,oaistatic.com,AI 美国
+  - DOMAIN-SUFFIX,oaiusercontent.com,AI 美国
+  - DOMAIN-SUFFIX,anthropic.com,AI 美国
+  - DOMAIN-SUFFIX,claude.ai,AI 美国
+  - DOMAIN-SUFFIX,perplexity.ai,AI 美国
+  - DOMAIN-SUFFIX,x.ai,AI 美国
+  - DOMAIN-SUFFIX,midjourney.com,AI 美国
+  - DOMAIN-SUFFIX,poe.com,AI 美国
+  # 用不到的整行删掉即可
+
+  # ===== 7. 海外专项 =====
+  - GEOSITE,youtube,国外代理
+  - GEOSITE,google,国外代理
+  - GEOSITE,telegram,国外代理
+  - GEOSITE,twitter,国外代理
+  - GEOSITE,facebook,国外代理
+  - GEOSITE,github,国外代理
+  - DOMAIN-SUFFIX,proton.me,国外代理
+  - DOMAIN-SUFFIX,protonmail.com,国外代理
+  - DOMAIN-SUFFIX,pinterest.com,国外代理
+
+  # Telegram DC 网段：防纯域名解析被直连拖到转圈
+  # 91.108.0.0/18 一次覆盖原来的 4/8/12/16/56 五个 /22
+  - IP-CIDR,91.108.0.0/18,国外代理,no-resolve
+  - IP-CIDR,149.154.160.0/20,国外代理,no-resolve
+
+  # ===== 8. 国内兜底 =====
+  - GEOSITE,CN,国内直连
+  - GEOIP,CN,国内直连,no-resolve
+
+  # ===== 9. 未命中流量兜底 =====
+  - MATCH,漏网之鱼
