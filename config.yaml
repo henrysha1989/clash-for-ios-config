@@ -272,26 +272,6 @@ proxy-groups:
       - 节点选择
       - DIRECT
 
-  # ---- AI 分组：地区固定美国 ----
-  # filter 只收节点名里带美国标记的节点（🇺🇸/美国/美区/US/洛杉矶…），
-  # (?<![a-z])us(?![a-z]) 是为了不误吃 Australia / Russia 这类名字。
-  # 如果你的订阅节点名完全不带地区标记，这里会一个都匹配不到 →
-  # 组内会回退成 COMPATIBLE(≈直连)，那就把 filter 删掉改成手动选美区节点。
-  - name: AI 美国
-    type: select
-    proxies:
-      - AI 自动(美区)
-      - 手动选择          # 逃生口：手选的节点不保证美区，AI 可能因此被区域限制
-      - DIRECT
-
-  - name: AI 自动(美区)
-    type: url-test
-    include-all: true
-    filter: '(?i)美|(?<![a-z])us(?![a-z])|united ?states|los ?angeles|san ?jose|santa ?clara|seattle|dallas|chicago|new ?york|miami|phoenix|ashburn|atlanta|portland|las ?vegas|silicon ?valley|洛杉矶|圣何塞|西雅图|达拉斯|芝加哥|纽约|迈阿密|凤凰城|亚特兰大|硅谷|加州'
-    url: http://www.gstatic.com/generate_204      # 想让测速更贴合 AI，可换成 https://gemini.google.com
-    interval: 300
-    tolerance: 50
-    lazy: true
 
 # ------------------------------------------------------------------------------
 # 8. 远程规则集（公开大表用 MRS 二进制；自建小表用 classical 文本；都走加速前缀）
@@ -411,10 +391,13 @@ rules:
   - DOMAIN-KEYWORD,browserleaks,国外代理
   - DOMAIN-KEYWORD,ipleak,国外代理
 
-  # ===== 7. AI 服务（只保留 Gemini 规则集；走美区，必须排在 GEOSITE,google 前面）=====
-  - RULE-SET,Gemini,AI 美国
-  - DOMAIN-SUFFIX,gemini.google.com,AI 美国       # 规则集没拉下来时的兜底
-  - DOMAIN-SUFFIX,aistudio.google.com,AI 美国
+  # ===== 7. AI 服务（只保留 Gemini 规则集；必须排在 GEOSITE,google 前面）=====
+  # 原「AI 美国 / AI 自动(美区)」分组已删除：订阅节点名不带地区标记 ⇒ filter 一个都匹配不到
+  # ⇒ 组内只剩 COMPATIBLE(≈直连)，等于把 Gemini 送直连（App 里显示「URLTEST · 无节点」）。
+  # 现在直接交给「国外代理」，走你自己选的节点。
+  - RULE-SET,Gemini,国外代理
+  - DOMAIN-SUFFIX,gemini.google.com,国外代理       # 规则集没拉下来时的兜底
+  - DOMAIN-SUFFIX,aistudio.google.com,国外代理
   # OpenAI / Claude / Perplexity 等已按需移除；要用别的厂商时在这里补回对应域名
 
   # ===== 8. 海外专项 =====
