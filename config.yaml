@@ -38,7 +38,10 @@ mixed-port: 7890
 allow-lan: false
 mode: rule
 log-level: warning
-ipv6: false
+# ⚠️ 必须 true：内核 parseIPV6() 在 ipv6=false 时会把 tun.inet6-address 清空 ⇒
+#    App 拿不到 v6 地址就声明 applied=false（隧道里没有 v6）⇒ IPv6 流量与 v6 DNS
+#    全部走物理链路（实测 browserleaks 会看到运营商解析器）。详见 README。
+ipv6: true
 unified-delay: true          # 延迟只算握手耗时，数值更接近真实体验
 tcp-concurrent: true         # 多 IP 并发拨号，优选最快的一个
 find-process-mode: 'off'     # 移动端不做进程匹配，省 CPU / 电
@@ -55,6 +58,9 @@ tun:
   auto-detect-interface: false     # 同上；这两项只在 PC / mihomo 上才需要 true
   strict-route: true
   endpoint-independent-nat: true   # UDP 打洞 / 联机游戏 NAT 更友好
+  # v6 隧道地址段。内核默认是 fdfe:dcba:9876::1/126；这里显式写 9877 段，
+  # 与下面 dns.fake-ip-range6 的 9876 段分开，避免接口地址和假 IP 池撞车。
+  inet6-address: [fdfe:dcba:9877::1/126]
   dns-hijack:
     - any:53
     - tcp://any:53
@@ -105,10 +111,11 @@ geox-url:                      # 【个人定制区】加速前缀，换环境�
 dns:
   enable: true
   listen: 127.0.0.1:1053     # 只服务本机；要给局域网设备用改成 0.0.0.0:1053
-  ipv6: false
+  ipv6: true                 # 必须 true：关掉就不回 AAAA，浏览器会改问物理网络的解析器
   respect-rules: true        # DNS 查询本身也走 rules：境外 DoH 经代理出去，不裸奔
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
+  fake-ip-range6: fdfe:dcba:9876::1/64   # fake-ip 的 v6 池（官方示例取值，与 tun 的 9877 段分开）
   use-hosts: true
 
   default-nameserver:        # 只能写纯 IP，用于解析下面那些 DoH 的主机名

@@ -98,6 +98,13 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
 - iOS 上**不可用**、写了也会被忽略的：`easytier`、`faketcp`、`redir`、`tproxy`、
   `tun.include-*` / `tun.exclude-*`、`iptables`、`clash-for-android`。
 - `allow-lan` 会被 App 的「局域网共享」开关覆盖（默认关）。本文件写 `false`，与开关一致。
+- **IPv6 必须开着**（`ipv6: true` + `dns.ipv6: true`）。内核 `parseIPV6()` 在 `ipv6: false` 时会把
+  `tun.inet6-address` 清空，App 拿不到 v6 地址就声明 `tun: IPv6 declaration applied=false`
+  ——**隧道里没有 IPv6**。而手机的网络（Wi-Fi / 蜂窝）是有 v6 的，于是 **IPv6 流量与 v6 DNS
+  全部走物理链路**，被运营商解析；browserleaks 能同时看到本配置的 DoH（Cloudflare）和运营商解析器。
+  本文件因此写：`ipv6: true`、`dns.ipv6: true`、`dns.fake-ip-range6: fdfe:dcba:9876::1/64`、
+  `tun.inet6-address: [fdfe:dcba:9877::1/126]`（v6 接口段与假 IP 池分开，取内核官方示例的值）。
+  改完自检：App 日志里应出现 `tun: IPv6 declaration applied=true`。
 
 ## 要改的地方
 
@@ -116,6 +123,10 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
 
 ## 改动记录
 
+- **2026-10-11**：**修 IPv6 泄漏**。原文件 `ipv6: false` + `dns.ipv6: false`（继承自模板），
+  导致内核清空 `tun.inet6-address`、App 声明 `applied=false`，隧道不含 v6 ⇒ 手机的 IPv6 流量与
+  v6 DNS 全走物理链路（browserleaks 实测混入运营商解析器）。改为 `ipv6: true` + `dns.ipv6: true`，
+  并显式给出 `dns.fake-ip-range6: fdfe:dcba:9876::1/64` 与 `tun.inet6-address: [fdfe:dcba:9877::1/126]`。
 - **2026-10-11**：AI 段只保留 Gemini（删掉 OpenAI / ChatGPT / Claude / Perplexity / x.ai /
   Midjourney / Poe 等内联域名）；新增第 5 节「自建拦截表」，接 `shadowrocket-adr-rules` 的
   `clash-ios` 分支（`ByteDanceAd` 261 条 / `SoulAd` 17 条 / `RejectCustom` 10 条，classical 文本）。
