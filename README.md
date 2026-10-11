@@ -20,6 +20,29 @@ https://raw.githubusercontent.com/henrysha1989/clash-for-ios-config/main/config.
 国内直连超时可换自建加速前缀（`https://git.521989.xyz/` + 上面的完整地址）。
 注意 raw 有 CDN 缓存，改完不一定立刻生效。
 
+## 配置与节点分开管理
+
+这个客户端把**配置**和**节点**分成两条独立管线：
+
+1. 把本仓库的 `config.yaml` 作为**配置**添加（从 URL 导入）—— 它只提供分组与分流规则；
+2. 节点在 App 的**「节点来源」**里单独添加（订阅 / 单节点 / 本地节点集），
+   可以同时挂多个、逐个开关（至少保留一个）。
+
+所以**本文件保持 `proxies: []`**，节点不写进来。分组能自动吃到 App 挂上来的节点，
+是因为第 7 节的组用了 `include-all: true`。内核同时支持三种写法：
+
+| 字段 | 收什么 |
+|---|---|
+| `include-all` | `proxies` + `proxy-providers`（本文件用这个） |
+| `include-all-proxies` | 只收 `proxies` |
+| `include-all-providers` | 只收 `proxy-providers` |
+
+也可以用 `use: [名称]` 点名引用某个 provider。于是加节点、换订阅、开关某个节点源，
+都不用动这个文件 —— 这也是它敢放在公开仓库的原因。
+
+> 桌面 mihomo（Clash Verge 等）没有这套「节点来源」，那时才需要在文件里自己配
+> `proxies:` 或 `proxy-providers:`；**带订阅地址的副本不要推到本仓库**。
+
 ## 这份配置针对 iOS 内核做过什么
 
 依据是内核仓库 `bind/clash/config_deviations.go`（对 `v1.19.32-clash.1` 核对，2026-10-11）。
@@ -60,6 +83,8 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
 
 ## 改动记录
 
+- **2026-10-11**：按客户端「配置与节点分开管理」的机制整理第 6 节与本文档 —— 本文件只当配置用，
+  节点交给 App 的「节点来源」，`proxies: []` 保持空，分组靠 `include-all` 自动接收。
 - **2026-10-11**：首次入库。修掉两处失效引用 —— `dns.direct-nameserver` 与
   `dns.nameserver-policy.geosite:cn` 原来都指向自建 DoH `doh.521989.xyz`
   （该域名记录已于 2026-10-04 删除，实测 ENODATA），改成 `https://dns.alidns.com/dns-query`；
