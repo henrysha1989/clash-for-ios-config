@@ -43,6 +43,33 @@ https://raw.githubusercontent.com/henrysha1989/clash-for-ios-config/main/config.
 > 桌面 mihomo（Clash Verge 等）没有这套「节点来源」，那时才需要在文件里自己配
 > `proxies:` 或 `proxy-providers:`；**带订阅地址的副本不要推到本仓库**。
 
+## 规则集
+
+第 8 节有 7 个远程规则集，分三类：
+
+| 类别 | 规则集 | 格式 | 来源 |
+|---|---|---|---|
+| 公开大表 | `BlockHttpDNS` / `Advertising_Domain` / `Tesla` | `domain` + `mrs` | MetaCubeX/meta-rules-dat |
+| 公开表 | `Gemini` | `classical` + `text` | blackmatrix7/ios_rule_script |
+| **自建拦截表** | `ByteDanceAd` / `SoulAd` / `RejectCustom` | `classical` + `text` | [shadowrocket-adr-rules](https://github.com/henrysha1989/shadowrocket-adr-rules) 的 `clash-ios` 分支 |
+
+自建那三张表的**事实来源仍是该仓库 main 分支**的 Shadowrocket 格式清单
+（`bytedance-ad.list` 261 条 / `soul-ad.list` 17 条 / `reject-custom.list` 10 条，共 288 条）。
+`clash-ios` 分支里是派生版本：**去掉第 3 列策略、丢掉注释行，类型与值逐字不动**
+（即 `DOMAIN-SUFFIX,x,REJECT-DROP` → `DOMAIN-SUFFIX,x`）。动作由本配置决定，
+三行都写 `RULE-SET,… ,REJECT`；想静默丢包就改成 `REJECT-DROP`。
+
+main 更新后在规则仓库根目录跑 `sh mihomo/convert.sh` 重新生成。
+
+**为什么自建表不用 MRS**：iOS 内核的 MRS 校验（`bind/clash/mrs_validation.go`）只支持
+`domain` 与 `ipcidr` 两种 behavior，`classical` 会直接报
+`MRS format is unsupported for provider behavior classical`；而这三张表是混合类型
+（DOMAIN-SUFFIX / DOMAIN / DOMAIN-KEYWORD / IP-CIDR），装不进 `domain` 集。
+288 条的规模也用不上 MRS 的性能收益 —— 那是给几万条的大表准备的。
+
+规则顺序上，自建拦截表放在**自建直连之后**（第 5 节），沿用规则仓库的既有约定：
+自家域名与直连优先，不让"拦广告"误伤正常访问。
+
 ## 这份配置针对 iOS 内核做过什么
 
 依据是内核仓库 `bind/clash/config_deviations.go`（对 `v1.19.32-clash.1` 核对，2026-10-11）。
@@ -83,6 +110,9 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
 
 ## 改动记录
 
+- **2026-10-11**：AI 段只保留 Gemini（删掉 OpenAI / ChatGPT / Claude / Perplexity / x.ai /
+  Midjourney / Poe 等内联域名）；新增第 5 节「自建拦截表」，接 `shadowrocket-adr-rules` 的
+  `clash-ios` 分支（`ByteDanceAd` 261 条 / `SoulAd` 17 条 / `RejectCustom` 10 条，classical 文本）。
 - **2026-10-11**：按客户端「配置与节点分开管理」的机制整理第 6 节与本文档 —— 本文件只当配置用，
   节点交给 App 的「节点来源」，`proxies: []` 保持空，分组靠 `include-all` 自动接收。
 - **2026-10-11**：首次入库。修掉两处失效引用 —— `dns.direct-nameserver` 与
