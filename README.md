@@ -9,7 +9,7 @@ iOS 端 **Clash**（[ProjectClash/Clash-Client](https://github.com/ProjectClash/
 
 | 文件 | 说明 |
 |---|---|
-| `config.yaml` | 主配置：TUN + fake-ip DNS + 4 个策略组 + 47 条分流规则 + 7 个远程规则集 |
+| `config.yaml` | 主配置：TUN + fake-ip DNS + 4 个策略组 + 47 条分流规则 + 8 个远程规则集 |
 | `qr/accelerator.png` | 导入地址的二维码（扫码用） |
 
 ## 导入
@@ -58,21 +58,26 @@ https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/clash-for-
 
 ## 规则集
 
-第 8 节有 7 个远程规则集，分三类：
+第 8 节有 8 个远程规则集，分四类：
 
 | 类别 | 规则集 | 格式 | 来源 |
 |---|---|---|---|
 | 公开大表 | `BlockHttpDNS` / `Advertising_Domain` / `Tesla` | `domain` + `mrs` | MetaCubeX/meta-rules-dat |
 | 公开表 | `Gemini` | `classical` + `text` | blackmatrix7/ios_rule_script |
 | **自建拦截表** | `ByteDanceAd` / `SoulAd` / `RejectCustom` | `classical` + `text` | [shadowrocket-adr-rules](https://github.com/henrysha1989/shadowrocket-adr-rules) 的 `clash-ios` 分支 |
+| **自建直连表** | `DirectCustom` | `classical` + `text` | 同上（源表 `direct-custom.list`） |
 
-自建那三张表的**事实来源仍是该仓库 main 分支**的 Shadowrocket 格式清单
-（`bytedance-ad.list` 261 条 / `soul-ad.list` 17 条 / `reject-custom.list` 10 条，共 288 条）。
+自建那四张表的**事实来源仍是该仓库 main 分支**的 Shadowrocket 格式清单
+（`bytedance-ad.list` 261 条 / `soul-ad.list` 17 条 / `reject-custom.list` 10 条 /
+`direct-custom.list` 122 条，共 410 条）。
+`direct-custom.list` 是**与 Shadowrocket 共用同一张表**：手工区放公司域名（`megarobo.*`）等手改项，
+自动区由 `sr_analyze.py` 从手机 DB 收集（抖音 / 腾讯等实测需直连的域）。
 `clash-ios` 分支里是派生版本：**去掉第 3 列策略、丢掉注释行，类型与值逐字不动**
-（即 `DOMAIN-SUFFIX,x,REJECT-DROP` → `DOMAIN-SUFFIX,x`）。动作由本配置决定，
-三行都写 `RULE-SET,… ,REJECT`；想静默丢包就改成 `REJECT-DROP`。
+（即 `DOMAIN-SUFFIX,x,REJECT-DROP` → `DOMAIN-SUFFIX,x`）。动作由本配置决定：
+拦截三行写 `RULE-SET,… ,REJECT`（想静默丢包就改 `REJECT-DROP`），直连那行写 `RULE-SET,… ,国内直连`。
 
-main 更新后在规则仓库根目录跑 `sh mihomo/convert.sh` 重新生成。
+main 一改，规则仓库的 Action（`.github/workflows/sync-clash-ios.yml` → `mihomo/sync.mjs`）
+就会自动把四张表转好推到 `clash-ios` 分支，本地不用手动跑；想手动核对用 `node mihomo/sync.mjs --dry`。
 
 **为什么自建表不用 MRS**：iOS 内核的 MRS 校验（`bind/clash/mrs_validation.go`）只支持
 `domain` 与 `ipcidr` 两种 behavior，`classical` 会直接报
@@ -133,6 +138,12 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
 
 ## 改动记录
 
+- **2026-10-12**：**自定义直连规则改为引用自建直连表**。原来散在规则里的
+  `DOMAIN-SUFFIX,megarobo.com/.tech/.info,国内直连` 换成一条 `RULE-SET,DirectCustom,国内直连`，
+  接 `shadowrocket-adr-rules` 的 `clash-ios` 分支新增的 `mihomo/direct-custom.list`（122 条）——
+  与 Shadowrocket 那份 `direct-custom.list` **同一张表**，改表两端同时生效。
+  `DOMAIN-SUFFIX,521989.xyz`（自建加速站域名）**仍留在配置里内联**，没进共享表。
+  为此把 `mihomo/sync.mjs` 的 `FILES` 与同步 workflow 的 `paths` 都补上了 `direct-custom.list`。
 - **2026-10-11**：精简分组 + 过滤无效节点。删掉两个**默认朝向与 `节点选择` 相同**的冗余间接层：
   `国外代理`（16 条规则改指 `节点选择`）和 `漏网之鱼`（`MATCH` 改指 `节点选择`），默认行为不变，
   **策略组 8 → 4**：节点选择 / 手动选择 / 自动选择 / 国内直连。
@@ -145,7 +156,7 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
   Gemini 的三条规则改指 `国外代理`。分组 8 → 6 个。
 - **2026-10-11**：Gemini 规则集从 `cdn.jsdelivr.net` 直连改走自建加速前缀（jsdelivr 在国内
   TLS 握手失败，App 里报「Gemini: TLS 错误导致安全连接失败」）。**内容不变**（blackmatrix7 同仓库同文件，
-  只换投递路径）。至此 7 个规则集全部走加速站 —— 第三方 CDN 在国内不可靠，新加规则集时别用。
+  只换投递路径）。至此规则集全部走加速站 —— 第三方 CDN 在国内不可靠，新加规则集时别用。
 - **2026-10-11**：**修 IPv6 泄漏**。原文件 `ipv6: false` + `dns.ipv6: false`（继承自模板），
   导致内核清空 `tun.inet6-address`、App 声明 `applied=false`，隧道不含 v6 ⇒ 手机的 IPv6 流量与
   v6 DNS 全走物理链路（browserleaks 实测混入运营商解析器）。改为 `ipv6: true` + `dns.ipv6: true`，
