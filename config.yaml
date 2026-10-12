@@ -329,6 +329,16 @@ rule-providers:
     url: "https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/shadowrocket-adr-rules/clash-ios/mihomo/reject-custom.list"
     path: ./rules/reject-custom.list
 
+  # ---- 自建直连表（同源：shadowrocket-adr-rules 的 clash-ios 分支）----
+  # 手工区 + 自动区共 122 条，与 Shadowrocket 那份 direct-custom.list 是同一张表。
+  DirectCustom:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    url: "https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/shadowrocket-adr-rules/clash-ios/mihomo/direct-custom.list"
+    path: ./rules/direct-custom.list
+
 # ------------------------------------------------------------------------------
 # 9. 分流规则（命中即停，顺序 = 优先级）
 # ------------------------------------------------------------------------------
@@ -364,10 +374,9 @@ rules:
   - DOMAIN-SUFFIX,dingtalkapps.com,国内直连
   - DOMAIN-SUFFIX,laiwang.com,国内直连
   - GEOSITE,category-entertainment-cn,国内直连
-  # 公司核心业务系统【个人定制区】
-  - DOMAIN-SUFFIX,megarobo.com,国内直连
-  - DOMAIN-SUFFIX,megarobo.tech,国内直连
-  - DOMAIN-SUFFIX,megarobo.info,国内直连
+  # 公司核心业务系统（megarobo.*）与抖音/腾讯等实测需直连的域，统一走自建直连表
+  # （与 Shadowrocket 那份 direct-custom.list 同源，改表两端同时生效）
+  - RULE-SET,DirectCustom,国内直连
 
   # ===== 5. 自建拦截表（放在自建直连之后：自家域名 / 直连优先，避免误拦）=====
   # 来源：shadowrocket-adr-rules 的 clash-ios 分支（main 三张表去掉策略列生成）。
