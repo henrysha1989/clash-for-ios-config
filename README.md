@@ -84,8 +84,8 @@ https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/clash-for-
 > **回滚**：`url` 换回 `adblockmihomolite.mrs`（一行）。
 
 自建那四张表的**事实来源仍是该仓库 main 分支**的 Shadowrocket 格式清单
-（`bytedance-ad.list` 263 条 / `soul-ad.list` 17 条 / `reject-custom.list` 13 条 /
-`direct-custom.list` 121 条，共 414 条 —— **这几个数随上游同步浮动**，以 `clash-ios` 分支实际文件为准）。
+（`bytedance-ad.list` 263 条 / `soul-ad.list` 17 条 / `reject-custom.list` 20 条 /
+`direct-custom.list` 121 条，共 421 条 —— **这几个数随上游同步浮动**，以 `clash-ios` 分支实际文件为准）。
 `direct-custom.list` 是**与 Shadowrocket 共用同一张表**：手工区放公司域名（`megarobo.*`）等手改项，
 自动区由 `sr_analyze.py` 从手机 DB 收集（抖音 / 腾讯等实测需直连的域）。
 `clash-ios` 分支里是派生版本：**去掉第 3 列策略、丢掉注释行，类型与值逐字不动**
@@ -181,6 +181,14 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
   规则总数 42 条、规则集 8 个都不变（只换源与名字）。
   **真机内存实测：20.8 → 21.1 MB（+0.3 MB，App「内核运行时」页 01:25）**、常驻 +3.4 MB ⇒ 50 MB 上限下无压力；
   先前用 Linux RSS 估的「~40 MB」高估了约 6 倍（教训已写进 README 正文与配置注释）。
+- **2026-10-15**：**自建拦截表 +7 条**（owner 抓包驱动，全部进 `reject-custom.list` 的**手工区** ——
+  该区人工维护，`sr_analyze.py` 只收敛 AUTO 标记以下、`clash-ios` 分支自动同步 ⇒ 小火箭与 Clash 两端同时生效）。
+  ① Soul 抓包 ⇒ 腾讯优量汇（GDT）/ 腾讯广告 SDK 共 2 条；
+  ② 探探 + 高德抓包 ⇒ 阿里妈妈 Tanx（曝光/点击信标）、秒针监测、优酷广告 ATM、AppsFlyer 归因 4 条后缀，
+  外加高德广告素材域 1 条。**探探开屏本身无需新规** —— 它的 `/v2/ad/configuration` 明确是 GDT 竞价（①已覆盖）。
+  口径与取舍（含「为什么不拦 alicdn / 探探主 API / 路径级为何不做」）见工作区
+  `ops/clash/tantan-amap-HAR-分析-20261015.md`；分流侧无需改规则，`RULE-SET,RejectCustom` 已在。
+  `RejectCustom` 13 → **20** 条，自建三表合计 293 → **300** 条（`ByteDanceAd` 263 / `SoulAd` 17 / `RejectCustom` 20）。
 - **2026-10-12**：**自定义直连规则改为引用自建直连表**。原来散在规则里的
   `DOMAIN-SUFFIX,megarobo.com/.tech/.info,国内直连` 换成一条 `RULE-SET,DirectCustom,国内直连`，
   接 `shadowrocket-adr-rules` 的 `clash-ios` 分支新增的 `mihomo/direct-custom.list`（122 条）——
