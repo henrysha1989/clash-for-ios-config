@@ -74,11 +74,13 @@ https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/clash-for-
 > **2026-10-15 再换到完整版**（`adblockmihomo.mrs`，**233,137 条** / 2.2 MB）—— 理由是 owner 实测反馈
 > **"Clash 的拦截效果比小火箭差很多"**：lite 只有 8,428 条，而小火箭那边挂着两张 4 万级表（合计 77,608），
 > 完整版是 lite 的 **27.7 倍**、小火箭那两张合计的 **3 倍**。
-> ⚠️ **内存代价与风险**（本机 mihomo `v1.19.32`，与 iOS 内核同版本上游）：加载完整版 **RSS +19.8 MB**
-> （43.8 → 63.6 MB）；iOS 网络扩展硬上限 **50 MB**，而 App「内核运行时」页挂 lite 时显示**内存占用 20.8 MB**
-> ⇒ 预计换完 ~40 MB，**在线内但余量薄**。内核是 `with_low_memory` 构建、另有内存压力 shed/trim 机制，
-> 所以**值得实测**（owner 2026-10-15 亲自在真机测）。
-> **验收**：看「内核运行时」的**内存占用**是否稳在 45 MB 以下、有无掉线/被系统回收；
+> ✅ **内存实测（2026-10-15 01:25 真机，App「内核运行时」页）**：换成完整版后
+> **内存占用 21.1 MB**（挂 lite 时是 20.8 MB ⇒ **只 +0.3 MB**），Go 堆 9.7（+1.8）、常驻内存 79.1（+3.4）。
+> **50 MB 上限下毫无压力**，真机连续使用无异常。
+> ⚠️ **估算方法的教训**：先前用本机 Linux mihomo `v1.19.32` 的 **RSS** 估过 +19.8 MB / 预计 ~40 MB，
+> **高估约 6 倍** —— Linux RSS 含 Go 未归还的堆页；iOS 这边比的是 App 的「内存占用」，
+> 加上 `with_low_memory` 内核的 trim/shed，真实增量只有 ~3 MB。
+> **以后判断 iOS 内存一律真机读这一页，别拿 Linux RSS 外推。**
 > **回滚**：`url` 换回 `adblockmihomolite.mrs`（一行）。
 
 自建那四张表的**事实来源仍是该仓库 main 分支**的 Shadowrocket 格式清单
@@ -177,6 +179,8 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
   `./rules/adblockmihomo.mrs`。起因：owner 实测反馈 Clash 的拦截明显弱于小火箭。
   ⚠️ 内存 +19.8 MB（实测），iOS 50 MB 上限下需真机验收；回滚 = 一行 url。
   规则总数 42 条、规则集 8 个都不变（只换源与名字）。
+  **真机内存实测：20.8 → 21.1 MB（+0.3 MB，App「内核运行时」页 01:25）**、常驻 +3.4 MB ⇒ 50 MB 上限下无压力；
+  先前用 Linux RSS 估的「~40 MB」高估了约 6 倍（教训已写进 README 正文与配置注释）。
 - **2026-10-12**：**自定义直连规则改为引用自建直连表**。原来散在规则里的
   `DOMAIN-SUFFIX,megarobo.com/.tech/.info,国内直连` 换成一条 `RULE-SET,DirectCustom,国内直连`，
   接 `shadowrocket-adr-rules` 的 `clash-ios` 分支新增的 `mihomo/direct-custom.list`（122 条）——
