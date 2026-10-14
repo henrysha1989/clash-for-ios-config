@@ -285,11 +285,13 @@ rule-providers:
     # 2026-10-15（owner 实测决定）：lite 拦截效果不够（"Clash 的拦截效果差很多"），**换成完整版 233,137 条** ——
     #   AdGuard Base/Chinese/DNS + EasyList + hagezi + anti-AD 的合并产物，覆盖是 lite 的 **27.7 倍**、
     #   也是小火箭两张 4 万级表合计（77,608）的 3 倍。
-    # ⚠️ 内存代价（本机 mihomo v1.19.32 实测）：RSS 43.8 → 63.6 MB（**+19.8 MB**）。
-    #   iOS 网络扩展硬上限 **50 MB**；本机 App「内核运行时」页在挂 lite 时显示**内存占用 20.8 MB**
-    #   ⇒ 换完整版预计 ~40 MB，**在线内但余量薄**。内核是 `with_low_memory` 构建、带内存压力
-    #   shed/trim 机制，所以值得实测（owner 2026-10-15 亲自测）。
-    # ✅ 验证：App「内核运行时」页看**内存占用**是否稳在 45 MB 以下、有无掉线/被杀；
+    # ✅ **真机实测（2026-10-15 01:25，App「内核运行时」页）**：挂上完整版后
+    #   **内存占用 21.1 MB**（挂 lite 时 20.8 MB ⇒ **只 +0.3 MB**）、Go 堆 9.7（+1.8）、
+    #   常驻内存 79.1（+3.4）、Goroutine 103。**50 MB 上限下毫无压力**。
+    #   ⚠️ 教训：我先前用本机 Linux mihomo v1.19.32 的 **RSS** 估算（+19.8 MB、预计 ~40 MB）
+    #   **高估了约 6 倍** —— Linux RSS 含 Go 未归还的堆页，而 iOS 那份比的指标是 App 的「内存占用」，
+    #   加上 `with_low_memory` 内核的 trim/shed，真实增量只有 ~3 MB。**以后这类判断必须真机读这个页。**
+    # ✅ 验证：App「内核运行时」页看**内存占用**（红线 45 MB）、有无掉线/被杀；
     # ❌ 回滚：url 换回 adblockmihomolite.mrs、path 改回 ./rules/adblockmihomolite.mrs、名字可保持（不影响功能）。
     url: https://git.521989.xyz/https://raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblockmihomo.mrs
     path: ./rules/adblockmihomo.mrs
