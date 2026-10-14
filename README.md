@@ -63,22 +63,27 @@ https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/clash-for-
 | 类别 | 规则集 | 格式 | 来源 |
 |---|---|---|---|
 | 公开大表 | `BlockHttpDNS` / `Tesla` | `domain` + `mrs` | MetaCubeX/meta-rules-dat |
-| **公开去广告表** | `AdBlockMihomoLite`（**8,428 条**） | `domain` + `mrs` | [217heidai/adblockfilters](https://github.com/217heidai/adblockfilters) 的 `adblockmihomolite.mrs` |
+| **公开去广告表** | `AdBlockMihomo`（**233,137 条**） | `domain` + `mrs` | [217heidai/adblockfilters](https://github.com/217heidai/adblockfilters) 的 `adblockmihomolite.mrs` |
 | **自建拦截表** | `ByteDanceAd` / `SoulAd` / `RejectCustom` | `classical` + `text` | [shadowrocket-adr-rules](https://github.com/henrysha1989/shadowrocket-adr-rules) 的 `clash-ios` 分支 |
 | **自建直连表** | `DirectCustom` | `classical` + `text` | 同上（源表 `direct-custom.list`） |
 
-> `AdBlockMihomoLite` 2026-10-14 换源（名字也一并改成跟源走的）：
+> `AdBlockMihomo` 的换源史（名字一直跟源走）：
 > 原来的 MetaCubeX geosite `category-ads-all.mrs` 实测只有 **902 条**
 > （用 mihomo `GET /providers/rules` 读出来的 `ruleCount`），基本等于没拦。
-> 现在用 217heidai 的 **lite** 版（8,428 条 / 77 KB，上游每 8h 重建一次）。
-> **为什么不上完整版**（`adblockmihomo.mrs`，233,137 条 / 2.2 MB）：本机拿 mihomo `v1.19.32`
-> （与 iOS 内核同版本的上游）实测，加载完整版 **RSS 多 19.8 MB**（43.8 → 63.6 MB），
-> 而 iOS 网络扩展的硬上限是 **50 MB**（iOS 15+；iOS 14 只有 15 MB），超了会被系统直接杀。
-> lite 版只多 2.3 MB。完整版适合桌面那份 `clash-verge-global-merge.yaml`（内存充裕），要用再单独换。
+> 2026-10-14 先换成 217heidai 的 **lite** 版（8,428 条 / 77 KB）。
+> **2026-10-15 再换到完整版**（`adblockmihomo.mrs`，**233,137 条** / 2.2 MB）—— 理由是 owner 实测反馈
+> **"Clash 的拦截效果比小火箭差很多"**：lite 只有 8,428 条，而小火箭那边挂着两张 4 万级表（合计 77,608），
+> 完整版是 lite 的 **27.7 倍**、小火箭那两张合计的 **3 倍**。
+> ⚠️ **内存代价与风险**（本机 mihomo `v1.19.32`，与 iOS 内核同版本上游）：加载完整版 **RSS +19.8 MB**
+> （43.8 → 63.6 MB）；iOS 网络扩展硬上限 **50 MB**，而 App「内核运行时」页挂 lite 时显示**内存占用 20.8 MB**
+> ⇒ 预计换完 ~40 MB，**在线内但余量薄**。内核是 `with_low_memory` 构建、另有内存压力 shed/trim 机制，
+> 所以**值得实测**（owner 2026-10-15 亲自在真机测）。
+> **验收**：看「内核运行时」的**内存占用**是否稳在 45 MB 以下、有无掉线/被系统回收；
+> **回滚**：`url` 换回 `adblockmihomolite.mrs`（一行）。
 
 自建那四张表的**事实来源仍是该仓库 main 分支**的 Shadowrocket 格式清单
-（`bytedance-ad.list` 261 条 / `soul-ad.list` 17 条 / `reject-custom.list` 10 条 /
-`direct-custom.list` 122 条，共 410 条）。
+（`bytedance-ad.list` 263 条 / `soul-ad.list` 17 条 / `reject-custom.list` 13 条 /
+`direct-custom.list` 121 条，共 414 条 —— **这几个数随上游同步浮动**，以 `clash-ios` 分支实际文件为准）。
 `direct-custom.list` 是**与 Shadowrocket 共用同一张表**：手工区放公司域名（`megarobo.*`）等手改项，
 自动区由 `sr_analyze.py` 从手机 DB 收集（抖音 / 腾讯等实测需直连的域）。
 `clash-ios` 分支里是派生版本：**去掉第 3 列策略、丢掉注释行，类型与值逐字不动**
@@ -167,6 +172,11 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
   新表是合并表，比 geosite 激进。规则总数 45 条、规则集 8 个都不变，只是顺序变了。
   为什么不用完整版（233,137 条）：mihomo `v1.19.32` 实测加载后 RSS +19.8 MB，iOS 扩展 50 MB 上限扛不住；
   lite 版只 +2.3 MB。选型与实测见 `research/去广告规则集替换-评估-20261014.md`。
+- **2026-10-15**：**去广告表 lite → 完整版**。`AdBlockMihomoLite`(8,428) → **`AdBlockMihomo`(233,137)**，
+  名字跟着源走（`adblockmihomolite.mrs` → `adblockmihomo.mrs`），缓存路径同步改
+  `./rules/adblockmihomo.mrs`。起因：owner 实测反馈 Clash 的拦截明显弱于小火箭。
+  ⚠️ 内存 +19.8 MB（实测），iOS 50 MB 上限下需真机验收；回滚 = 一行 url。
+  规则总数 42 条、规则集 8 个都不变（只换源与名字）。
 - **2026-10-12**：**自定义直连规则改为引用自建直连表**。原来散在规则里的
   `DOMAIN-SUFFIX,megarobo.com/.tech/.info,国内直连` 换成一条 `RULE-SET,DirectCustom,国内直连`，
   接 `shadowrocket-adr-rules` 的 `clash-ios` 分支新增的 `mihomo/direct-custom.list`（122 条）——
@@ -192,7 +202,7 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
   并显式给出 `dns.fake-ip-range6: fdfe:dcba:9876::1/64` 与 `tun.inet6-address: [fdfe:dcba:9877::1/126]`。
 - **2026-10-11**：AI 段只保留 Gemini（删掉 OpenAI / ChatGPT / Claude / Perplexity / x.ai /
   Midjourney / Poe 等内联域名）；新增第 5 节「自建拦截表」，接 `shadowrocket-adr-rules` 的
-  `clash-ios` 分支（`ByteDanceAd` 261 条 / `SoulAd` 17 条 / `RejectCustom` 10 条，classical 文本）。
+  `clash-ios` 分支（`ByteDanceAd` 263 条 / `SoulAd` 17 条 / `RejectCustom` 13 条，classical 文本，条数随同步浮动）。
 - **2026-10-11**：按客户端「配置与节点分开管理」的机制整理第 6 节与本文档 —— 本文件只当配置用，
   节点交给 App 的「节点来源」，`proxies: []` 保持空，分组靠 `include-all` 自动接收。
 - **2026-10-11**：首次入库。修掉两处失效引用 —— `dns.direct-nameserver` 与
