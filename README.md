@@ -9,7 +9,7 @@ iOS 端 **Clash**（[ProjectClash/Clash-Client](https://github.com/ProjectClash/
 
 | 文件 | 说明 |
 |---|---|
-| `config.yaml` | 主配置：TUN + fake-ip DNS + 4 个策略组 + 45 条分流规则 + 8 个远程规则集 |
+| `config.yaml` | 主配置：TUN + fake-ip DNS + 4 个策略组 + 42 条分流规则 + 7 个远程规则集 |
 | `qr/accelerator.png` | 导入地址的二维码（扫码用） |
 
 ## 导入
@@ -58,13 +58,12 @@ https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/clash-for-
 
 ## 规则集
 
-第 8 节有 8 个远程规则集，分四类：
+第 8 节有 7 个远程规则集：
 
 | 类别 | 规则集 | 格式 | 来源 |
 |---|---|---|---|
 | 公开大表 | `BlockHttpDNS` / `Tesla` | `domain` + `mrs` | MetaCubeX/meta-rules-dat |
 | **公开去广告表** | `AdBlockMihomoLite`（**8,428 条**） | `domain` + `mrs` | [217heidai/adblockfilters](https://github.com/217heidai/adblockfilters) 的 `adblockmihomolite.mrs` |
-| 公开表 | `Gemini` | `classical` + `text` | blackmatrix7/ios_rule_script |
 | **自建拦截表** | `ByteDanceAd` / `SoulAd` / `RejectCustom` | `classical` + `text` | [shadowrocket-adr-rules](https://github.com/henrysha1989/shadowrocket-adr-rules) 的 `clash-ios` 分支 |
 | **自建直连表** | `DirectCustom` | `classical` + `text` | 同上（源表 `direct-custom.list`） |
 
@@ -146,10 +145,20 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
 > 原来的 `AI 美国` / `AI 自动(美区)` 两个分组已删除（2026-10-11）。原因：`AI 自动(美区)` 靠
 > **节点名里的地区标记**筛选美区节点，而订阅节点名不带标记时一个都匹配不到，App 里会显示成
 > 「URLTEST · 无节点」，组内只剩 `COMPATIBLE`（≈直连）——**等于把 Gemini 送去直连**，比没有这个组更糟。
-> 现在 Gemini 相关的三条规则直接指向 `国外代理`，走你自己选的节点。
+> Gemini 随后改指 `节点选择`；**2026-10-14 连 Gemini 规则集一起删了**（见改动记录），
+> AI 段目前是空的 —— 要接 OpenAI / Claude / Perplexity 时在那里加规则。
 
 ## 改动记录
 
+- **2026-10-14**：**删掉 `Gemini` 规则集**（owner 指令）。它是一张 blackmatrix7 的 classical 文本表
+  （13 条），但**内容已被 `GEOSITE,google` 完全覆盖**：13 条里 10 条域名/后缀规则本就落在
+  `+.google.com` / `+.googleapis.com` / `+.google.dev` / `+.google` / `+.deepmind.com` 里；
+  剩下 3 条 `DOMAIN-KEYWORD`（`colab` / `developerprofiles` / `generativelanguage`）的真实主机
+  （`generativelanguage.googleapis.com`、`colab.*.googleusercontent.com`、
+  `developerprofiles-pa.clients6.google.com`）也全在 geosite google 覆盖内。
+  两条兜底的 `DOMAIN-SUFFIX`（`gemini.google.com` / `aistudio.google.com`）同样由 `GEOSITE,google` 接住。
+  ⇒ **零覆盖损失**，少一个远程依赖（那张表正是 2026-10-11「Gemini: TLS 错误导致安全连接失败」的来源）。
+  规则 45 → **42** 条、规则集 8 → **7** 个，后续章节顺延重编号。
 - **2026-10-14**：**换掉公共去广告表 + 挪顺序**。`Advertising_Domain`（MetaCubeX geosite
   `category-ads-all.mrs`，实测只有 **902 条**）换成 **`AdBlockMihomoLite`**
   （217heidai `adblockmihomolite.mrs`，**8,428 条**，每 8h 更新）—— **规则集名字跟源走**，
