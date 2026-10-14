@@ -84,8 +84,8 @@ https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/clash-for-
 > **回滚**：`url` 换回 `adblockmihomolite.mrs`（一行）。
 
 自建那四张表的**事实来源仍是该仓库 main 分支**的 Shadowrocket 格式清单
-（`bytedance-ad.list` 263 条 / `soul-ad.list` 17 条 / `reject-custom.list` 20 条 /
-`direct-custom.list` 121 条，共 421 条 —— **这几个数随上游同步浮动**，以 `clash-ios` 分支实际文件为准）。
+（`bytedance-ad.list` 263 条 / `soul-ad.list` 17 条 / `reject-custom.list` 21 条 /
+`direct-custom.list` 120 条，共 421 条 —— **这几个数随上游同步浮动**，以 `clash-ios` 分支实际文件为准）。
 `direct-custom.list` 是**与 Shadowrocket 共用同一张表**：手工区放公司域名（`megarobo.*`）等手改项，
 自动区由 `sr_analyze.py` 从手机 DB 收集（抖音 / 腾讯等实测需直连的域）。
 `clash-ios` 分支里是派生版本：**去掉第 3 列策略、丢掉注释行，类型与值逐字不动**
@@ -189,6 +189,15 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
   口径与取舍（含「为什么不拦 alicdn / 探探主 API / 路径级为何不做」）见工作区
   `ops/clash/tantan-amap-HAR-分析-20261015.md`；分流侧无需改规则，`RULE-SET,RejectCustom` 已在。
   `RejectCustom` 13 → **20** 条，自建三表合计 293 → **300** 条（`ByteDanceAd` 263 / `SoulAd` 17 / `RejectCustom` 20）。
+- **2026-10-15**：**清掉一处「三重复」的域（`qchannel01.cn`，第三方渠道统计 + 位置上报 SDK，Soul/高德都集成）**。
+  它同时存在于：自用版**内联** `DOMAIN`（第 22 行）、`direct-custom.list` **自动区**（脚本写的）、上游公共表 ——
+  内联那条正是为了**压过中间那条**才加在 direct 表引用上一行的。自动区那条是**幽灵**：
+  2026-10-09 那次「放行救钉钉 H5」实验（当天已撤销）在 `sr_analyze.py` 状态里留下 `kind=direct`，
+  而**直连表自动区没有过期机制** ⇒ 每轮同步都被写回；又因**内联规则不在脚本视野**，
+  「拦截手工区优先」的护栏认不出它。修法：规则收进 `reject-custom.list` **手工区**（护栏从此认得）+
+  删内联行 ⇒ 两端行为一致（原先小火箭拦住、Clash 走直连）、重复归零。
+  `RejectCustom` 20 → **21**、`DirectCustom` 121 → **120**，三表合计 **301**。
+  查重工具：工作区 `ops/repo/check-dups.mjs`（表内/跨表/父子覆盖/跨方向/内联与表重复，ERROR 即 exit 1）。
 - **2026-10-12**：**自定义直连规则改为引用自建直连表**。原来散在规则里的
   `DOMAIN-SUFFIX,megarobo.com/.tech/.info,国内直连` 换成一条 `RULE-SET,DirectCustom,国内直连`，
   接 `shadowrocket-adr-rules` 的 `clash-ios` 分支新增的 `mihomo/direct-custom.list`（122 条）——
