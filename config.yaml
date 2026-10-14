@@ -275,13 +275,20 @@ rule-providers:
     url: https://git.521989.xyz/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/httpdns.mrs
     path: ./rules/httpdns.mrs
 
-  Advertising_Domain:
+  # 名字按来源定：217heidai/adblockfilters 的 mihomo 版 lite 表（adblockmihomolite.mrs）
+  AdBlockMihomoLite:
     type: http
     behavior: domain
     format: mrs
-    interval: 86400
-    url: https://git.521989.xyz/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ads-all.mrs
-    path: ./rules/advertising.mrs
+    interval: 28800     # 上游 217heidai/adblockfilters 每 8h 重建一次
+    # 2026-10-14 换源：原 MetaCubeX geosite `category-ads-all` 实测只有 902 条，太不全；
+    # 换成 217heidai 的 **lite** 版（8,428 条 / 77 KB）——它是 AdGuard 中文 + EasyList China
+    # + anti-AD 等合并后的产物，mrs 走 domain behavior 的 succinct 结构。
+    # 为什么不换完整版（adblockmihomo.mrs，233,137 条 / 2.2 MB）：本机 mihomo v1.19.32 实测
+    # RSS 多 19.8 MB（43.8 → 63.6 MB），iOS 网络扩展硬上限 50 MB，大概率被 jetsam 杀。
+    # 完整版留给桌面那份配置（clash-verge-global-merge.yaml），要用时再单独换。
+    url: https://git.521989.xyz/https://raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblockmihomolite.mrs
+    path: ./rules/adblockmihomolite.mrs
 
   Tesla:
     type: http
@@ -343,9 +350,9 @@ rule-providers:
 # 9. 分流规则（命中即停，顺序 = 优先级）
 # ------------------------------------------------------------------------------
 rules:
-  # ===== 1. 广告 / HttpDNS 拦截 =====
+  # ===== 1. HttpDNS 拦截 =====
+  # 广告拦截已挪到第 5 节（国内直连之后），原因见那一节。
   - RULE-SET,BlockHttpDNS,REJECT
-  - RULE-SET,Advertising_Domain,REJECT
 
   # ===== 2. WebRTC 穿透截断 =====
   # ⚠ 会打断微信 / 腾讯会议 / Google Meet / Discord 的 P2P 音视频（退回中继或直接失败）
@@ -378,7 +385,14 @@ rules:
   # （与 Shadowrocket 那份 direct-custom.list 同源，改表两端同时生效）
   - RULE-SET,DirectCustom,国内直连
 
-  # ===== 5. 自建拦截表（放在自建直连之后：自家域名 / 直连优先，避免误拦）=====
+  # ===== 5. 广告拦截（公共合并大表）=====
+  # ⚠ 刻意放在国内直连「之后」：这张表是 AdGuard 中文 + EasyList China + anti-AD 等的合并表，
+  #   比原来的 geosite category-ads-all 激进得多；排在这里，让第 3、4 节的直连规则
+  #   （自家域 / 公司系统 / 钉钉 / Apple）先逃生。**但仍排在 GEOSITE,CN / GEOIP,CN 之前**，
+  #   否则 CN 广告域会被国内兜底放走。
+  - RULE-SET,AdBlockMihomoLite,REJECT
+
+  # ===== 6. 自建拦截表（放在自建直连之后：自家域名 / 直连优先，避免误拦）=====
   # 来源：shadowrocket-adr-rules 的 clash-ios 分支（main 三张表去掉策略列生成）。
   # 动作用 REJECT：小火箭那边必须写 REJECT-DROP 是它的 SDK 重连问题，mihomo 没这毛病；
   # 真要静默丢包，把这三行的 REJECT 改成 REJECT-DROP 即可。
@@ -386,11 +400,11 @@ rules:
   - RULE-SET,SoulAd,REJECT
   - RULE-SET,RejectCustom,REJECT
 
-  # ===== 6. 泄漏测试工具走代理 =====
+  # ===== 7. 泄漏测试工具走代理 =====
   - DOMAIN-KEYWORD,browserleaks,节点选择
   - DOMAIN-KEYWORD,ipleak,节点选择
 
-  # ===== 7. AI 服务（只保留 Gemini 规则集；必须排在 GEOSITE,google 前面）=====
+  # ===== 8. AI 服务（只保留 Gemini 规则集；必须排在 GEOSITE,google 前面）=====
   # 原「AI 美国 / AI 自动(美区)」分组已删除：订阅节点名不带地区标记 ⇒ filter 一个都匹配不到
   # ⇒ 组内只剩 COMPATIBLE(≈直连)，等于把 Gemini 送直连（App 里显示「URLTEST · 无节点」）。
   # 现在直接交给「节点选择」，走你自己选的节点。
@@ -399,7 +413,7 @@ rules:
   - DOMAIN-SUFFIX,aistudio.google.com,节点选择
   # OpenAI / Claude / Perplexity 等已按需移除；要用别的厂商时在这里补回对应域名
 
-  # ===== 8. 海外专项 =====
+  # ===== 9. 海外专项 =====
   - GEOSITE,youtube,节点选择
   - GEOSITE,google,节点选择
   - GEOSITE,telegram,节点选择
@@ -415,11 +429,11 @@ rules:
   - IP-CIDR,91.108.0.0/18,节点选择,no-resolve
   - IP-CIDR,149.154.160.0/20,节点选择,no-resolve
 
-  # ===== 9. 国内兜底 =====
+  # ===== 10. 国内兜底 =====
   - GEOSITE,CN,国内直连
   - GEOIP,CN,国内直连,no-resolve
 
-  # ===== 10. 未命中流量兜底 =====
+  # ===== 11. 未命中流量兜底 =====
   # 原「漏网之鱼」组已删（默认就是节点选择，纯冗余间接层）；要临时把未知流量扔直连，
   # 直接在「节点选择」里选 DIRECT 即可（代价是全局都直连，不再区分未知流量）。
   - MATCH,节点选择
