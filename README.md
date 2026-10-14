@@ -9,7 +9,7 @@ iOS 端 **Clash**（[ProjectClash/Clash-Client](https://github.com/ProjectClash/
 
 | 文件 | 说明 |
 |---|---|
-| `config.yaml` | 主配置：TUN + fake-ip DNS + 4 个策略组 + 47 条分流规则 + 8 个远程规则集 |
+| `config.yaml` | 主配置：TUN + fake-ip DNS + 4 个策略组 + 45 条分流规则 + 8 个远程规则集 |
 | `qr/accelerator.png` | 导入地址的二维码（扫码用） |
 
 ## 导入
@@ -62,10 +62,20 @@ https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/clash-for-
 
 | 类别 | 规则集 | 格式 | 来源 |
 |---|---|---|---|
-| 公开大表 | `BlockHttpDNS` / `Advertising_Domain` / `Tesla` | `domain` + `mrs` | MetaCubeX/meta-rules-dat |
+| 公开大表 | `BlockHttpDNS` / `Tesla` | `domain` + `mrs` | MetaCubeX/meta-rules-dat |
+| **公开去广告表** | `AdBlockMihomoLite`（**8,428 条**） | `domain` + `mrs` | [217heidai/adblockfilters](https://github.com/217heidai/adblockfilters) 的 `adblockmihomolite.mrs` |
 | 公开表 | `Gemini` | `classical` + `text` | blackmatrix7/ios_rule_script |
 | **自建拦截表** | `ByteDanceAd` / `SoulAd` / `RejectCustom` | `classical` + `text` | [shadowrocket-adr-rules](https://github.com/henrysha1989/shadowrocket-adr-rules) 的 `clash-ios` 分支 |
 | **自建直连表** | `DirectCustom` | `classical` + `text` | 同上（源表 `direct-custom.list`） |
+
+> `AdBlockMihomoLite` 2026-10-14 换源（名字也一并改成跟源走的）：
+> 原来的 MetaCubeX geosite `category-ads-all.mrs` 实测只有 **902 条**
+> （用 mihomo `GET /providers/rules` 读出来的 `ruleCount`），基本等于没拦。
+> 现在用 217heidai 的 **lite** 版（8,428 条 / 77 KB，上游每 8h 重建一次）。
+> **为什么不上完整版**（`adblockmihomo.mrs`，233,137 条 / 2.2 MB）：本机拿 mihomo `v1.19.32`
+> （与 iOS 内核同版本的上游）实测，加载完整版 **RSS 多 19.8 MB**（43.8 → 63.6 MB），
+> 而 iOS 网络扩展的硬上限是 **50 MB**（iOS 15+；iOS 14 只有 15 MB），超了会被系统直接杀。
+> lite 版只多 2.3 MB。完整版适合桌面那份 `clash-verge-global-merge.yaml`（内存充裕），要用再单独换。
 
 自建那四张表的**事实来源仍是该仓库 main 分支**的 Shadowrocket 格式清单
 （`bytedance-ad.list` 261 条 / `soul-ad.list` 17 条 / `reject-custom.list` 10 条 /
@@ -85,8 +95,10 @@ main 一改，规则仓库的 Action（`.github/workflows/sync-clash-ios.yml` �
 （DOMAIN-SUFFIX / DOMAIN / DOMAIN-KEYWORD / IP-CIDR），装不进 `domain` 集。
 288 条的规模也用不上 MRS 的性能收益 —— 那是给几万条的大表准备的。
 
-规则顺序上，自建拦截表放在**自建直连之后**（第 5 节），沿用规则仓库的既有约定：
-自家域名与直连优先，不让"拦广告"误伤正常访问。
+规则顺序上：**直连优先于拦截**。公共去广告表在第 5 节、自建拦截表在第 6 节，
+都排在**具体直连规则（第 3、4 节：内网 / 自家域 / 公司系统 / 钉钉 / Apple）之后**，
+沿用规则仓库的既有约定 —— 自家域名与直连优先，不让"拦广告"误伤正常访问；
+同时两节都在最后的 `GEOSITE,CN` / `GEOIP,CN` 国内兜底**之前**，否则 CN 广告域会被兜底放走。
 
 ## 这份配置针对 iOS 内核做过什么
 
@@ -138,6 +150,14 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
 
 ## 改动记录
 
+- **2026-10-14**：**换掉公共去广告表 + 挪顺序**。`Advertising_Domain`（MetaCubeX geosite
+  `category-ads-all.mrs`，实测只有 **902 条**）换成 **`AdBlockMihomoLite`**
+  （217heidai `adblockmihomolite.mrs`，**8,428 条**，每 8h 更新）—— **规则集名字跟源走**，
+  不再沿用 geosite 时代的 `Advertising_Domain`。**不动**自建三表。同时把这条 `RULE-SET` 从第 1 节
+  挪到第 5 节（具体直连之后、`GEOSITE,CN` 之前），给自家域/公司系统留逃生路径 ——
+  新表是合并表，比 geosite 激进。规则总数 45 条、规则集 8 个都不变，只是顺序变了。
+  为什么不用完整版（233,137 条）：mihomo `v1.19.32` 实测加载后 RSS +19.8 MB，iOS 扩展 50 MB 上限扛不住；
+  lite 版只 +2.3 MB。选型与实测见 `research/去广告规则集替换-评估-20261014.md`。
 - **2026-10-12**：**自定义直连规则改为引用自建直连表**。原来散在规则里的
   `DOMAIN-SUFFIX,megarobo.com/.tech/.info,国内直连` 换成一条 `RULE-SET,DirectCustom,国内直连`，
   接 `shadowrocket-adr-rules` 的 `clash-ios` 分支新增的 `mihomo/direct-custom.list`（122 条）——
