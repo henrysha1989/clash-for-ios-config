@@ -298,16 +298,7 @@ rule-providers:
     url: https://git.521989.xyz/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/tesla.mrs
     path: ./rules/tesla.mrs
 
-  Gemini:
-    type: http
-    behavior: classical
-    format: text        # blackmatrix7 的 .list 是纯文本规则行，不是 `payload:` YAML，必须写 text
-    interval: 86400
-    # 原来走 cdn.jsdelivr.net 直连 —— 国内会 TLS 握手失败（App 里报
-    # 「Gemini: TLS 错误导致安全连接失败」）。改成 GitHub raw + 自建加速前缀，
-    # 与其余 6 个规则集一致；规则内容不变（同仓库同文件，只是换投递路径）。
-    url: "https://git.521989.xyz/https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Gemini/Gemini.list"
-    path: ./rules/Gemini.list
+  # 原 `Gemini`（blackmatrix7 classical 文本表）已于 2026-10-14 删除，理由见 [Rule] 里那段注释。
 
   # ---- 自建拦截表（shadowrocket-adr-rules 的 clash-ios 分支，已去掉策略列）----
   # 为什么不用 MRS：iOS 内核的 MRS 只支持 domain / ipcidr 两种 behavior，装不下混合类型
@@ -404,16 +395,16 @@ rules:
   - DOMAIN-KEYWORD,browserleaks,节点选择
   - DOMAIN-KEYWORD,ipleak,节点选择
 
-  # ===== 8. AI 服务（只保留 Gemini 规则集；必须排在 GEOSITE,google 前面）=====
-  # 原「AI 美国 / AI 自动(美区)」分组已删除：订阅节点名不带地区标记 ⇒ filter 一个都匹配不到
-  # ⇒ 组内只剩 COMPATIBLE(≈直连)，等于把 Gemini 送直连（App 里显示「URLTEST · 无节点」）。
-  # 现在直接交给「节点选择」，走你自己选的节点。
-  - RULE-SET,Gemini,节点选择
-  - DOMAIN-SUFFIX,gemini.google.com,节点选择       # 规则集没拉下来时的兜底
-  - DOMAIN-SUFFIX,aistudio.google.com,节点选择
-  # OpenAI / Claude / Perplexity 等已按需移除；要用别的厂商时在这里补回对应域名
+  # 原 Gemini 规则集已于 2026-10-14 删除（owner 指令）：它 13 条里 10 条域名/后缀规则
+  # 本就被 GEOSITE,google 覆盖（含 +.google.com / +.googleapis.com / +.googleusercontent.com 等），
+  # 剩下 3 条 DOMAIN-KEYWORD（colab / developerprofiles / generativelanguage）对应的真实主机
+  # （generativelanguage.googleapis.com、colab.*.googleusercontent.com、
+  # developerprofiles-pa.clients6.google.com）也全在 GEOSITE,google 的覆盖内 ⇒ 删掉零损失，
+  # 且不再依赖 blackmatrix7 那张表（它历史上正是「TLS 错误导致安全连接失败」的来源）。
+  # 两条 DOMAIN-SUFFIX 兜底（gemini.google.com / aistudio.google.com）同样由 GEOSITE,google 覆盖。
+  # AI 段目前为空：要接别的厂商（OpenAI / Claude / Perplexity…）时在这里加规则。
 
-  # ===== 9. 海外专项 =====
+  # ===== 8. 海外专项 =====
   - GEOSITE,youtube,节点选择
   - GEOSITE,google,节点选择
   - GEOSITE,telegram,节点选择
@@ -429,11 +420,11 @@ rules:
   - IP-CIDR,91.108.0.0/18,节点选择,no-resolve
   - IP-CIDR,149.154.160.0/20,节点选择,no-resolve
 
-  # ===== 10. 国内兜底 =====
+  # ===== 9. 国内兜底 =====
   - GEOSITE,CN,国内直连
   - GEOIP,CN,国内直连,no-resolve
 
-  # ===== 11. 未命中流量兜底 =====
+  # ===== 10. 未命中流量兜底 =====
   # 原「漏网之鱼」组已删（默认就是节点选择，纯冗余间接层）；要临时把未知流量扔直连，
   # 直接在「节点选择」里选 DIRECT 即可（代价是全局都直连，不再区分未知流量）。
   - MATCH,节点选择
