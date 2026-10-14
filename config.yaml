@@ -275,20 +275,24 @@ rule-providers:
     url: https://git.521989.xyz/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/httpdns.mrs
     path: ./rules/httpdns.mrs
 
-  # 名字按来源定：217heidai/adblockfilters 的 mihomo 版 lite 表（adblockmihomolite.mrs）
-  AdBlockMihomoLite:
+  # 名字按来源定：217heidai/adblockfilters 的 mihomo 版**完整表**（adblockmihomo.mrs）
+  AdBlockMihomo:
     type: http
     behavior: domain
     format: mrs
     interval: 28800     # 上游 217heidai/adblockfilters 每 8h 重建一次
-    # 2026-10-14 换源：原 MetaCubeX geosite `category-ads-all` 实测只有 902 条，太不全；
-    # 换成 217heidai 的 **lite** 版（8,428 条 / 77 KB）——它是 AdGuard 中文 + EasyList China
-    # + anti-AD 等合并后的产物，mrs 走 domain behavior 的 succinct 结构。
-    # 为什么不换完整版（adblockmihomo.mrs，233,137 条 / 2.2 MB）：本机 mihomo v1.19.32 实测
-    # RSS 多 19.8 MB（43.8 → 63.6 MB），iOS 网络扩展硬上限 50 MB，大概率被 jetsam 杀。
-    # 完整版留给桌面那份配置（clash-verge-global-merge.yaml），要用时再单独换。
-    url: https://git.521989.xyz/https://raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblockmihomolite.mrs
-    path: ./rules/adblockmihomolite.mrs
+    # 2026-10-14：原 MetaCubeX geosite `category-ads-all` 实测只有 902 条 ⇒ 先换成 lite（8,428 条）。
+    # 2026-10-15（owner 实测决定）：lite 拦截效果不够（"Clash 的拦截效果差很多"），**换成完整版 233,137 条** ——
+    #   AdGuard Base/Chinese/DNS + EasyList + hagezi + anti-AD 的合并产物，覆盖是 lite 的 **27.7 倍**、
+    #   也是小火箭两张 4 万级表合计（77,608）的 3 倍。
+    # ⚠️ 内存代价（本机 mihomo v1.19.32 实测）：RSS 43.8 → 63.6 MB（**+19.8 MB**）。
+    #   iOS 网络扩展硬上限 **50 MB**；本机 App「内核运行时」页在挂 lite 时显示**内存占用 20.8 MB**
+    #   ⇒ 换完整版预计 ~40 MB，**在线内但余量薄**。内核是 `with_low_memory` 构建、带内存压力
+    #   shed/trim 机制，所以值得实测（owner 2026-10-15 亲自测）。
+    # ✅ 验证：App「内核运行时」页看**内存占用**是否稳在 45 MB 以下、有无掉线/被杀；
+    # ❌ 回滚：url 换回 adblockmihomolite.mrs、path 改回 ./rules/adblockmihomolite.mrs、名字可保持（不影响功能）。
+    url: https://git.521989.xyz/https://raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblockmihomo.mrs
+    path: ./rules/adblockmihomo.mrs
 
   Tesla:
     type: http
@@ -381,7 +385,7 @@ rules:
   #   比原来的 geosite category-ads-all 激进得多；排在这里，让第 3、4 节的直连规则
   #   （自家域 / 公司系统 / 钉钉 / Apple）先逃生。**但仍排在 GEOSITE,CN / GEOIP,CN 之前**，
   #   否则 CN 广告域会被国内兜底放走。
-  - RULE-SET,AdBlockMihomoLite,REJECT
+  - RULE-SET,AdBlockMihomo,REJECT
 
   # ===== 6. 自建拦截表（放在自建直连之后：自家域名 / 直连优先，避免误拦）=====
   # 来源：shadowrocket-adr-rules 的 clash-ios 分支（main 三张表去掉策略列生成）。
