@@ -63,25 +63,27 @@ https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/clash-for-
 | 类别 | 规则集 | 格式 | 来源 |
 |---|---|---|---|
 | 公开大表 | `BlockHttpDNS` / `Tesla` | `domain` + `mrs` | MetaCubeX/meta-rules-dat |
-| **公开去广告表** | `AdBlockMihomo`（**233,137 条**） | `domain` + `mrs` | [217heidai/adblockfilters](https://github.com/217heidai/adblockfilters) 的 `adblockmihomolite.mrs` |
+| **公开去广告表** | `AdBlockMihomoLite`（**8,428 条**） | `domain` + `mrs` | [217heidai/adblockfilters](https://github.com/217heidai/adblockfilters) 的 `adblockmihomolite.mrs` |
 | **自建拦截表** | `ByteDanceAd` / `SoulAd` / `RejectCustom` | `classical` + `text` | [shadowrocket-adr-rules](https://github.com/henrysha1989/shadowrocket-adr-rules) 的 `clash-ios` 分支 |
 | **自建直连表** | `DirectCustom` | `classical` + `text` | 同上（源表 `direct-custom.list`） |
 
-> `AdBlockMihomo` 的换源史（名字一直跟源走）：
+> `AdBlockMihomoLite` 的换源史（**名字一直跟源走**，所以名字也跟着改）：
 > 原来的 MetaCubeX geosite `category-ads-all.mrs` 实测只有 **902 条**
 > （用 mihomo `GET /providers/rules` 读出来的 `ruleCount`），基本等于没拦。
-> 2026-10-14 先换成 217heidai 的 **lite** 版（8,428 条 / 77 KB）。
-> **2026-10-15 再换到完整版**（`adblockmihomo.mrs`，**233,137 条** / 2.2 MB）—— 理由是 owner 实测反馈
-> **"Clash 的拦截效果比小火箭差很多"**：lite 只有 8,428 条，而小火箭那边挂着两张 4 万级表（合计 77,608），
-> 完整版是 lite 的 **27.7 倍**、小火箭那两张合计的 **3 倍**。
-> ✅ **内存实测（2026-10-15 01:25 真机，App「内核运行时」页）**：换成完整版后
-> **内存占用 21.1 MB**（挂 lite 时是 20.8 MB ⇒ **只 +0.3 MB**），Go 堆 9.7（+1.8）、常驻内存 79.1（+3.4）。
-> **50 MB 上限下毫无压力**，真机连续使用无异常。
+> 2026-10-14 换成 217heidai 的 **lite** 版（8,428 条 / 77 KB）。
+> **2026-10-15**：owner 反馈 **"Clash 的拦截效果比小火箭差很多"** ⇒ 换成完整版
+> （`adblockmihomo.mrs`，**233,137 条** / 2.2 MB；是 lite 的 27.7 倍、小火箭那两张 4 万级表合计的 3 倍）。
+> **2026-10-15 晚（owner 真机试用后）**：**换回 lite** —— 原话「大表效果不明显」。
+> App 侧广告已由自建三表（`ByteDanceAd` / `SoulAd` / `RejectCustom`，**301 条**、抓包驱动）覆盖，
+> 完整表多出来的覆盖面在实际使用中看不出差别，不值得多背 2.2 MB + 每 8h 一次全量下载。**选型回归 lite。**
+> ✅ **内存实测（2026-10-15 01:25 真机，App「内核运行时」页，挂完整版时）**：**内存占用 21.1 MB**
+> （挂 lite 时 20.8 MB ⇒ **只 +0.3 MB**）、Go 堆 9.7（+1.8）、常驻内存 79.1（+3.4）。
+> ⇒ **两张表内存上都毫无压力**，所以选型该按「效果 / 体积」定，**别按内存**。
 > ⚠️ **估算方法的教训**：先前用本机 Linux mihomo `v1.19.32` 的 **RSS** 估过 +19.8 MB / 预计 ~40 MB，
 > **高估约 6 倍** —— Linux RSS 含 Go 未归还的堆页；iOS 这边比的是 App 的「内存占用」，
 > 加上 `with_low_memory` 内核的 trim/shed，真实增量只有 ~3 MB。
 > **以后判断 iOS 内存一律真机读这一页，别拿 Linux RSS 外推。**
-> **回滚**：`url` 换回 `adblockmihomolite.mrs`（一行）。
+> **要再换回完整版**：`url` / `path` 换成 `adblockmihomo.mrs` + 名字改 `AdBlockMihomo`（规则行同步改），一行级。
 
 自建那四张表的**事实来源仍是该仓库 main 分支**的 Shadowrocket 格式清单
 （`bytedance-ad.list` 263 条 / `soul-ad.list` 17 条 / `reject-custom.list` 21 条 /
@@ -198,6 +200,11 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
   删内联行 ⇒ 两端行为一致（原先小火箭拦住、Clash 走直连）、重复归零。
   `RejectCustom` 20 → **21**、`DirectCustom` 121 → **120**，三表合计 **301**。
   查重工具：工作区 `ops/repo/check-dups.mjs`（表内/跨表/父子覆盖/跨方向/内联与表重复，ERROR 即 exit 1）。
+- **2026-10-15**：**公开去广告表 完整版 → lite**（owner 真机试用后决定，原话「大表效果不明显」）。
+  `AdBlockMihomo`(233,137) → **`AdBlockMihomoLite`(8,428)**：名字 / `path` / 规则行同步改回
+  （**名字跟源走**：`adblockmihomo.mrs` → `adblockmihomolite.mrs`）。**规则总数 42 条、规则集 8 个都不变**。
+  理由：App 侧广告已由自建三表覆盖，完整表多出来的覆盖面实际看不出来，不值得多背 2.2 MB + 每 8h 一次全量下载。
+  ⚠️ 内存**不是**理由 —— 实测两张表只差 **+0.3 MB**（21.1 vs 20.8）。要再换回去 = 一行级改 `url`/`path`/名字。
 - **2026-10-12**：**自定义直连规则改为引用自建直连表**。原来散在规则里的
   `DOMAIN-SUFFIX,megarobo.com/.tech/.info,国内直连` 换成一条 `RULE-SET,DirectCustom,国内直连`，
   接 `shadowrocket-adr-rules` 的 `clash-ios` 分支新增的 `mihomo/direct-custom.list`（122 条）——
