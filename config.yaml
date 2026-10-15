@@ -275,26 +275,27 @@ rule-providers:
     url: https://git.521989.xyz/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/httpdns.mrs
     path: ./rules/httpdns.mrs
 
-  # 名字按来源定：217heidai/adblockfilters 的 mihomo 版**完整表**（adblockmihomo.mrs）
-  AdBlockMihomo:
+  # 名字按来源定：217heidai/adblockfilters 的 mihomo 版**精简表**（adblockmihomolite.mrs）
+  AdBlockMihomoLite:
     type: http
     behavior: domain
     format: mrs
     interval: 28800     # 上游 217heidai/adblockfilters 每 8h 重建一次
-    # 2026-10-14：原 MetaCubeX geosite `category-ads-all` 实测只有 902 条 ⇒ 先换成 lite（8,428 条）。
-    # 2026-10-15（owner 实测决定）：lite 拦截效果不够（"Clash 的拦截效果差很多"），**换成完整版 233,137 条** ——
-    #   AdGuard Base/Chinese/DNS + EasyList + hagezi + anti-AD 的合并产物，覆盖是 lite 的 **27.7 倍**、
-    #   也是小火箭两张 4 万级表合计（77,608）的 3 倍。
-    # ✅ **真机实测（2026-10-15 01:25，App「内核运行时」页）**：挂上完整版后
-    #   **内存占用 21.1 MB**（挂 lite 时 20.8 MB ⇒ **只 +0.3 MB**）、Go 堆 9.7（+1.8）、
-    #   常驻内存 79.1（+3.4）、Goroutine 103。**50 MB 上限下毫无压力**。
-    #   ⚠️ 教训：我先前用本机 Linux mihomo v1.19.32 的 **RSS** 估算（+19.8 MB、预计 ~40 MB）
-    #   **高估了约 6 倍** —— Linux RSS 含 Go 未归还的堆页，而 iOS 那份比的指标是 App 的「内存占用」，
-    #   加上 `with_low_memory` 内核的 trim/shed，真实增量只有 ~3 MB。**以后这类判断必须真机读这个页。**
-    # ✅ 验证：App「内核运行时」页看**内存占用**（红线 45 MB）、有无掉线/被杀；
-    # ❌ 回滚：url 换回 adblockmihomolite.mrs、path 改回 ./rules/adblockmihomolite.mrs、名字可保持（不影响功能）。
-    url: https://git.521989.xyz/https://raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblockmihomo.mrs
-    path: ./rules/adblockmihomo.mrs
+    # 换源史（**名字一直跟源走**，所以名字也跟着改）：
+    #   2026-10-14：原 MetaCubeX geosite `category-ads-all`（实测只有 902 条）→ **lite**（8,428 条，上游浮动）。
+    #   2026-10-15 凌晨：owner 反馈"Clash 的拦截效果差很多" ⇒ 换成**完整版**（233,137 条）。
+    #   2026-10-15（owner 真机试用后）⇒ **换回 lite**：「大表效果不明显」——
+    #     App 侧广告已由自建三表（ByteDanceAd / SoulAd / RejectCustom，301 条，抓包驱动）覆盖，
+    #     完整表多出来的覆盖面在实际使用中看不出差别，不值得多背 2.2 MB + 每 8h 一次全量下载。
+    # ✅ 真机实测（2026-10-15 01:25，App「内核运行时」页，挂完整版时）：**内存占用 21.1 MB**
+    #   （挂 lite 时 20.8 MB ⇒ **只 +0.3 MB**）⇒ **两张表内存上都毫无压力**，
+    #   所以选型该按「效果 / 体积」定，不按内存。50 MB 上限下都安全。
+    #   ⚠️ 教训：先前用本机 Linux mihomo v1.19.32 的 **RSS** 估算（+19.8 MB、预计 ~40 MB）**高估了约 6 倍** ——
+    #   Linux RSS 含 Go 未归还的堆页，而 iOS 那份比的指标是 App 的「内存占用」，加上 `with_low_memory`
+    #   内核的 trim/shed，真实增量只有 ~3 MB。**以后这类判断必须真机读那个页。**
+    # ✅ 要再换回完整版：url / path 换成 adblockmihomo.mrs + 名字改 `AdBlockMihomo`（规则行同步改），一行级回滚。
+    url: https://git.521989.xyz/https://raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblockmihomolite.mrs
+    path: ./rules/adblockmihomolite.mrs
 
   Tesla:
     type: http
@@ -387,7 +388,7 @@ rules:
   #   比原来的 geosite category-ads-all 激进得多；排在这里，让第 3、4 节的直连规则
   #   （自家域 / 公司系统 / 钉钉 / Apple）先逃生。**但仍排在 GEOSITE,CN / GEOIP,CN 之前**，
   #   否则 CN 广告域会被国内兜底放走。
-  - RULE-SET,AdBlockMihomo,REJECT
+  - RULE-SET,AdBlockMihomoLite,REJECT
 
   # ===== 6. 自建拦截表（放在自建直连之后：自家域名 / 直连优先，避免误拦）=====
   # 来源：shadowrocket-adr-rules 的 clash-ios 分支（main 三张表去掉策略列生成）。
