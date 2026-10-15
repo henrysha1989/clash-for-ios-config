@@ -9,7 +9,7 @@ iOS 端 **Clash**（[ProjectClash/Clash-Client](https://github.com/ProjectClash/
 
 | 文件 | 说明 |
 |---|---|
-| `config.yaml` | 主配置：TUN + fake-ip DNS + 4 个策略组 + 42 条分流规则 + 7 个远程规则集 |
+| `config.yaml` | 主配置：TUN + fake-ip DNS + 4 个策略组 + 44 条分流规则 + 7 个远程规则集 |
 | `qr/accelerator.png` | 导入地址的二维码（扫码用） |
 
 ## 导入
@@ -107,6 +107,12 @@ main 一改，规则仓库的 Action（`.github/workflows/sync-clash-ios.yml` �
 都排在**具体直连规则（第 3、4 节：内网 / 自家域 / 公司系统 / 钉钉 / Apple）之后**，
 沿用规则仓库的既有约定 —— 自家域名与直连优先，不让"拦广告"误伤正常访问；
 同时两节都在最后的 `GEOSITE,CN` / `GEOIP,CN` 国内兜底**之前**，否则 CN 广告域会被兜底放走。
+**第 7b 节是「强切 TCP」（QUIC / UDP-443）**：先放行国内目标（**IP 判据** `GEOIP,CN`），其余 UDP/443 一律 `REJECT`
+⇒ 逼 QUIC 回落 TCP。原因见 **2026-09-29 的定案**（机场节点的 UDP 中继普遍不如 TCP 稳，为 YouTube 连贯性）；
+小火箭侧等价物是 `block-quic = all-proxy`、桌面用同样两条 AND 规则 ⇒ **三端一致**。
+⚠️ 国内豁免**必须**在 REJECT 之前、且用 **IP 判据**：09-29 两次翻车都是拿域名判据去豁免钉钉
+（它自己走 DoH 拿真实 IP，域名还原不出来）⇒ 漏豁免就会报「网络连接异常」。
+这一节**不依赖 QUIC 嗅探**（本配置 `sniffer.sniff` 里故意没有 QUIC），靠 fake-ip 反查 + GEOIP 预解析即可。
 
 ## 这份配置针对 iOS 内核做过什么
 
@@ -203,6 +209,13 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
 - **2026-10-15**：**+1 同族补漏**：`qchannel03.cn`（与 `qchannel01.cn` 同一套渠道统计 SDK）。
   实况核查发现 **Clash 侧 lite/full 都没覆盖它**（小火箭侧 blackmatrix7 `AdvertisingLite_Domain` 里有）⇒ 本表兜底。
   `RejectCustom` 23 → **24**，三表合计 **304**。
+- **2026-10-15**：**补「强切 TCP」（QUIC / UDP-443），与桌面 / 小火箭对齐**。新增第 7b 节两条 AND 规则
+  （`... ,(GEOIP,CN)),DIRECT` 在前豁免国内、`((DST-PORT,443),(NETWORK,UDP)),REJECT` 在后），规则 **42 → 44**。
+  起因：owner 问「iOS 为什么 QUIC 还走代理」—— 桌面与小火箭早就有强切，**只有这份一直没加**。
+  目的（2026-09-29 owner 定案）：掐掉 QUIC 逼 YouTube/Chrome 回落 TCP，机场节点的 UDP 中继普遍不如 TCP 稳。
+  ⚠️ 国内豁免是 **IP 判据**（`GEOIP,CN`）而非域名判据：09-29 两次翻车都是域名判据豁免钉钉失败
+  （钉钉自己走 DoH 拿真实 IP、域名还原不出来）⇒ 钉钉/会议类若报「网络连接异常」，第一嫌疑就是这条 REJECT。
+  影响面：UDP/443 实测只占全部连接 **~1.3%**；**不依赖 QUIC 嗅探**（本配置故意关着）。
 - **2026-10-15**：**公开去广告表 完整版 → lite**（owner 真机试用后决定，原话「大表效果不明显」）。
   `AdBlockMihomo`(233,137) → **`AdBlockMihomoLite`(8,428)**：名字 / `path` / 规则行同步改回
   （**名字跟源走**：`adblockmihomo.mrs` → `adblockmihomolite.mrs`）。**规则总数 42 条、规则集 8 个都不变**。
