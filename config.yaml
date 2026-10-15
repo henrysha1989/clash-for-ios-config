@@ -309,7 +309,7 @@ rule-providers:
 
   # ---- 自建拦截表（shadowrocket-adr-rules 的 clash-ios 分支，已去掉策略列）----
   # 为什么不用 MRS：iOS 内核的 MRS 只支持 domain / ipcidr 两种 behavior，装不下混合类型
-  # （详见该分支 mihomo/README.md）。这三张表共 303 条，也用不上 MRS 的性能收益。
+  # （详见该分支 mihomo/README.md）。这三张表共 304 条，也用不上 MRS 的性能收益。
   ByteDanceAd:
     type: http
     behavior: classical
