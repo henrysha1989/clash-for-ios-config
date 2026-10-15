@@ -86,8 +86,8 @@ https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/clash-for-
 > **要再换回完整版**：`url` / `path` 换成 `adblockmihomo.mrs` + 名字改 `AdBlockMihomo`（规则行同步改），一行级。
 
 自建那四张表的**事实来源仍是该仓库 main 分支**的 Shadowrocket 格式清单
-（`bytedance-ad.list` 263 条 / `soul-ad.list` 17 条 / `reject-custom.list` 23 条 /
-`direct-custom.list` 120 条，共 423 条 —— **这几个数随上游同步浮动**，以 `clash-ios` 分支实际文件为准）。
+（`bytedance-ad.list` 263 条 / `soul-ad.list` 17 条 / `reject-custom.list` 24 条 /
+`direct-custom.list` 120 条，共 424 条 —— **这几个数随上游同步浮动**，以 `clash-ios` 分支实际文件为准）。
 `direct-custom.list` 是**与 Shadowrocket 共用同一张表**：手工区放公司域名（`megarobo.*`）等手改项，
 自动区由 `sr_analyze.py` 从手机 DB 收集（抖音 / 腾讯等实测需直连的域）。
 `clash-ios` 分支里是派生版本：**去掉第 3 列策略、丢掉注释行，类型与值逐字不动**
@@ -200,6 +200,9 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
   删内联行 ⇒ 两端行为一致（原先小火箭拦住、Clash 走直连）、重复归零。
   `RejectCustom` 20 → **21**、`DirectCustom` 121 → **120**，三表合计 **301**。
   查重工具：工作区 `ops/repo/check-dups.mjs`（表内/跨表/父子覆盖/跨方向/内联与表重复，ERROR 即 exit 1）。
+- **2026-10-15**：**+1 同族补漏**：`qchannel03.cn`（与 `qchannel01.cn` 同一套渠道统计 SDK）。
+  实况核查发现 **Clash 侧 lite/full 都没覆盖它**（小火箭侧 blackmatrix7 `AdvertisingLite_Domain` 里有）⇒ 本表兜底。
+  `RejectCustom` 23 → **24**，三表合计 **304**。
 - **2026-10-15**：**公开去广告表 完整版 → lite**（owner 真机试用后决定，原话「大表效果不明显」）。
   `AdBlockMihomo`(233,137) → **`AdBlockMihomoLite`(8,428)**：名字 / `path` / 规则行同步改回
   （**名字跟源走**：`adblockmihomo.mrs` → `adblockmihomolite.mrs`）。**规则总数 42 条、规则集 8 个都不变**。
