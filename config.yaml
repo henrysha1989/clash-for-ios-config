@@ -411,6 +411,16 @@ rules:
   # 两条 DOMAIN-SUFFIX 兜底（gemini.google.com / aistudio.google.com）同样由 GEOSITE,google 覆盖。
   # AI 段目前为空：要接别的厂商（OpenAI / Claude / Perplexity…）时在这里加规则。
 
+  # ===== 7b. 强切 TCP（QUIC / UDP-443）=====
+  # 目的（2026-09-29 owner 定案）：掐掉 QUIC 逼 Chrome/YouTube 回落 TCP —— 机场节点的 UDP 中继
+  #   普遍不如 TCP 稳。小火箭用 `block-quic = all-proxy`、桌面用同样两条 AND 规则 ⇒ 三端对齐。
+  # ⚠️ **国内目标豁免必须在前面、且用 IP 判据**：09-29 两次翻车都是因为拿域名判据豁免钉钉
+  #   （钉钉自己走 DoH 拿真实 IP，域名还原不出来）⇒ 漏豁免就会报「网络连接异常」。
+  #   若钉钉 / 会议类 App 出现网络异常，第一嫌疑就是下面第二条 ⇒ 注释掉即可回滚。
+  # 代价：只影响 UDP/443（实测占全部连接 ~1.3%）；QUIC 的 0-RTT / 无队头阻塞优势在代理链路上本就打折。
+  - AND,((NETWORK,UDP),(DST-PORT,443),(GEOIP,CN)),DIRECT
+  - AND,((DST-PORT,443),(NETWORK,UDP)),REJECT
+
   # ===== 8. 海外专项 =====
   - GEOSITE,youtube,节点选择
   - GEOSITE,google,节点选择
