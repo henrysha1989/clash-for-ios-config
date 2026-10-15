@@ -86,8 +86,8 @@ https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/clash-for-
 > **要再换回完整版**：`url` / `path` 换成 `adblockmihomo.mrs` + 名字改 `AdBlockMihomo`（规则行同步改），一行级。
 
 自建那四张表的**事实来源仍是该仓库 main 分支**的 Shadowrocket 格式清单
-（`bytedance-ad.list` 263 条 / `soul-ad.list` 17 条 / `reject-custom.list` 21 条 /
-`direct-custom.list` 120 条，共 421 条 —— **这几个数随上游同步浮动**，以 `clash-ios` 分支实际文件为准）。
+（`bytedance-ad.list` 263 条 / `soul-ad.list` 17 条 / `reject-custom.list` 23 条 /
+`direct-custom.list` 120 条，共 423 条 —— **这几个数随上游同步浮动**，以 `clash-ios` 分支实际文件为准）。
 `direct-custom.list` 是**与 Shadowrocket 共用同一张表**：手工区放公司域名（`megarobo.*`）等手改项，
 自动区由 `sr_analyze.py` 从手机 DB 收集（抖音 / 腾讯等实测需直连的域）。
 `clash-ios` 分支里是派生版本：**去掉第 3 列策略、丢掉注释行，类型与值逐字不动**
@@ -205,6 +205,12 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
   （**名字跟源走**：`adblockmihomo.mrs` → `adblockmihomolite.mrs`）。**规则总数 42 条、规则集 8 个都不变**。
   理由：App 侧广告已由自建三表覆盖，完整表多出来的覆盖面实际看不出来，不值得多背 2.2 MB + 每 8h 一次全量下载。
   ⚠️ 内存**不是**理由 —— 实测两张表只差 **+0.3 MB**（21.1 vs 20.8）。要再换回去 = 一行级改 `url`/`path`/名字。
+- **2026-10-15**：**B 组 +2**（owner 点名）：`amap-aos-info-nogw.amap.com`（高德开屏广告下发口 —— 抓包第 0 秒那条
+  `/ws/aos/alimama/splash_screen_rt` 全在这里）+ `ad-screen-api.immomo.com`（探探广告回执）。
+  **都用 `DOMAIN` 精确匹配**（不是后缀）把误伤面收到最小。`RejectCustom` 21 → **23**，三表合计 **303**。
+  起因：owner 反馈"很多广告没效果"—— 复查两份实况（小火箭 DB + Clash 日志）证明**规则一直在正常工作**
+  （广告域拦截率 86.4%，比改前的 81.7%/74.7% 更高；新增 8 条每条都有命中），
+  真正漏的是**App 自有广告面**（下发口）与**和内容同域的素材 CDN**（后者只能路径级，需 MITM）。
 - **2026-10-12**：**自定义直连规则改为引用自建直连表**。原来散在规则里的
   `DOMAIN-SUFFIX,megarobo.com/.tech/.info,国内直连` 换成一条 `RULE-SET,DirectCustom,国内直连`，
   接 `shadowrocket-adr-rules` 的 `clash-ios` 分支新增的 `mihomo/direct-custom.list`（122 条）——
