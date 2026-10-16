@@ -216,6 +216,15 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
   ⚠️ 国内豁免是 **IP 判据**（`GEOIP,CN`）而非域名判据：09-29 两次翻车都是域名判据豁免钉钉失败
   （钉钉自己走 DoH 拿真实 IP、域名还原不出来）⇒ 钉钉/会议类若报「网络连接异常」，第一嫌疑就是这条 REJECT。
   影响面：UDP/443 实测只占全部连接 **~1.3%**；**不依赖 QUIC 嗅探**（本配置故意关着）。
+- **2026-10-16**：**`dns.direct-nameserver` 改 DoH-only（删掉明文 IP）**。起因：网络扩展在 **15:05 因写盘过量
+  （MetricKit `writesCaused` = 1074 MB / 9.2 h，`categoryCounts` 只有 `Disk:1`）被 iOS 杀掉** ——
+  排查发现 17 h 内 **58% 的连接是明文 UDP:53**（37,277 条，96% 打 `223.5.5.5`）：
+  因为列表里**同时有 DoH 和明文 IP 时，明文更快、每次都赢**。DoH 走 HTTP/2 长连接可复用，
+  同样查询量只产生约 **1/26** 的连接记录（实测 1,403 条）⇒ 日志/写盘量同比例下降。
+  改法：`direct-nameserver` 只留 `https://dns.alidns.com/dns-query` + `https://doh.pub/dns-query`；
+  **`default-nameserver` 仍留纯 IP**（那是 bootstrap，量极小，必须留）。
+  ⚠️ 代价：DoH 全挂时直连解析没有明文兜底（表现为"国内域名解析不了"，删回一行即恢复）。
+  验证：下一份 `report-*.hako-metrickit.json` 的 `writesCaused`，以及日志里 UDP:53 的占比（应降到接近 0）。
 - **2026-10-15**：**公开去广告表 完整版 → lite**（owner 真机试用后决定，原话「大表效果不明显」）。
   `AdBlockMihomo`(233,137) → **`AdBlockMihomoLite`(8,428)**：名字 / `path` / 规则行同步改回
   （**名字跟源走**：`adblockmihomo.mrs` → `adblockmihomolite.mrs`）。**规则总数 42 条、规则集 8 个都不变**。
