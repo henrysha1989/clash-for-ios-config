@@ -141,19 +141,24 @@ dns:
     - https://dns.google/dns-query
 
   nameserver-policy:
-    # 苹果服务与系统推送强制国内公共 DNS，解决 DNS 挂死与证书异常
+    # 苹果服务与系统推送强制国内 DNS，解决 DNS 挂死与证书异常
     # geosite:apple 已覆盖 apple.com / icloud.com / itunes / ls 等子域
+    # 2026-10-16：**三组全部改 DoH**。原来 Apple/icloud 是纯明文、geosite:cn 是「DoH + 明文混列」——
+    #   实测混列时**明文更快、每次都会赢** ⇒ CN 与苹果域名的解析实际走明文 UDP:53（17h 内 3.7 万条）。
+    #   解析器仍是国内同一家（阿里/腾讯），所以**不改变当初「修证书异常」的结论**，只是把传输加密。
+    #   ⚠️ 注意 `nameserver-policy` **优先级高于** `direct-nameserver` ⇒ 只改后者是不够的。
     'geosite:apple':
-      - 223.5.5.5
-      - 119.29.29.29
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
     '+.icloud.com':
-      - 223.5.5.5
-      - 119.29.29.29
-    # 国内域名：优先阿里 DoH，回落阿里 / 腾讯公共 DNS
+      - https://dns.alidns.com/dns-query
+      - https://doh.pub/dns-query
+    # 国内域名：统一 DoH（原来混列明文 ⇒ 明文会赢）
     'geosite:cn':
       - https://dns.alidns.com/dns-query
-      - 223.5.5.5
-    # DoH 服务器自身走纯 IP，跳过 bootstrap
+      - https://doh.pub/dns-query
+    # ⚠️ 下面两条用于**解析 DoH 服务器自身的主机名**（只含 DoH 域名、不含任何浏览域名），
+    #    与 `default-nameserver` 同类 ⇒ 保留纯 IP 以跳过 bootstrap。
     'dns.cloudflare.com': [1.1.1.1, 1.0.0.1]
     'dns.google': [8.8.8.8, 8.8.4.4]
 
