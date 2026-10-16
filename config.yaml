@@ -127,9 +127,14 @@ dns:
     - https://119.29.29.29/dns-query
 
   direct-nameserver:         # 直连流量用国内 DNS，国内查询不走境外
-    - https://dns.alidns.com/dns-query   # 2026-10-04 起自建 DoH（doh.521989.xyz）已下线，改阿里 DoH
-    - 223.5.5.5
-    - 119.29.29.29
+    # 2026-10-16：**只留 DoH，删掉明文 IP**。实测并发查询下**明文更快、每次都赢**，
+    #   导致 17 小时内 3.7 万条连接（占全部 58%）是明文 UDP:53、96% 打 223.5.5.5 ——
+    #   既回退隐私，又把日志/写盘量拉高（当天 15:05 扩展就因写盘 1.07 GB 被 iOS 杀掉）。
+    #   DoH 走 HTTP/2 长连接可复用 ⇒ 同样查询量只产生约 1/26 的连接记录。
+    #   ⚠️ 代价：DoH 全挂时直连解析没有明文兜底（`default-nameserver` 仍留纯 IP，那是 bootstrap，量极小）。
+    #   ⚠️ 双 DoH 互为备份；想再加一层兜底可补 `https://223.5.5.5/dns-query`（走 IP、免 bootstrap）。
+    - https://dns.alidns.com/dns-query
+    - https://doh.pub/dns-query
 
   nameserver:                # 兜底解析器：境外 DoH（respect-rules 下经代理出去）
     - https://dns.cloudflare.com/dns-query
