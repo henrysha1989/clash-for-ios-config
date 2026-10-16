@@ -225,6 +225,15 @@ iOS 端有一批键会被**平台强制或剥离**，写错值只会让 App 里�
   **`default-nameserver` 仍留纯 IP**（那是 bootstrap，量极小，必须留）。
   ⚠️ 代价：DoH 全挂时直连解析没有明文兜底（表现为"国内域名解析不了"，删回一行即恢复）。
   验证：下一份 `report-*.hako-metrickit.json` 的 `writesCaused`，以及日志里 UDP:53 的占比（应降到接近 0）。
+- **2026-10-16**：**`nameserver-policy` 三组（`geosite:apple` / `+.icloud.com` / `geosite:cn`）全部改 DoH-only** ——
+  补完上一条改动。**关键教训：`nameserver-policy` 的优先级高于 `direct-nameserver`**，只改后者对 CN 域名无效；
+  而且「DoH + 明文 IP 混列」时**明文更快、每次都会赢**（实测 96% 打 `223.5.5.5`）。
+  苹果两组原本是纯明文、`geosite:cn` 是混列 ⇒ 改成与 `direct-nameserver` 同一对
+  （`https://dns.alidns.com/dns-query` + `https://doh.pub/dns-query`）。
+  **解析器仍是国内同一家**（阿里/腾讯）⇒ 不改变当初「修 Apple 证书异常」的结论，只是把传输加密。
+  **残留明文只有两类、都不含浏览域名**：① `default-nameserver`（bootstrap，只解析 DoH 主机名）；
+  ② policy 里 `dns.cloudflare.com` / `dns.google` → `1.1.1.1/8.8.8.8`（同样只用于解析 DoH 主机名）。
+  验证：日志里 UDP:53 占比应降到接近 0（改前 58%）、下一份 MetricKit 的 `writesCaused` 应显著下降。
 - **2026-10-15**：**公开去广告表 完整版 → lite**（owner 真机试用后决定，原话「大表效果不明显」）。
   `AdBlockMihomo`(233,137) → **`AdBlockMihomoLite`(8,428)**：名字 / `path` / 规则行同步改回
   （**名字跟源走**：`adblockmihomo.mrs` → `adblockmihomolite.mrs`）。**规则总数 42 条、规则集 8 个都不变**。
