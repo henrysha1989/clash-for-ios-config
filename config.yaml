@@ -399,25 +399,33 @@ rules:
   - DOMAIN-SUFFIX,dingtalk.com,国内直连
   - DOMAIN-SUFFIX,dingtalkapps.com,国内直连
   - DOMAIN-SUFFIX,laiwang.com,国内直连
-  - GEOSITE,category-entertainment-cn,国内直连
   # 公司核心业务系统（megarobo.*）与抖音/腾讯等实测需直连的域，统一走自建直连表
   # （与 Shadowrocket 那份 direct-custom.list 同源，改表两端同时生效）
   - RULE-SET,DirectCustom,国内直连
 
-  # ===== 5. 广告拦截（公共合并大表）=====
-  # ⚠ 刻意放在国内直连「之后」：这张表是 AdGuard 中文 + EasyList China + anti-AD 等的合并表，
-  #   比原来的 geosite category-ads-all 激进得多；排在这里，让第 3、4 节的直连规则
-  #   （自家域 / 公司系统 / 钉钉 / Apple）先逃生。**但仍排在 GEOSITE,CN / GEOIP,CN 之前**，
-  #   否则 CN 广告域会被国内兜底放走。
-  - RULE-SET,AdBlockMihomoLite,REJECT
-
-  # ===== 6. 自建拦截表（放在自建直连之后：自家域名 / 直连优先，避免误拦）=====
+  # ===== 5. 广告拦截 =====
+  # ⚠ 2026-10-17 调整顺序：本节原先排在 GEOSITE,category-entertainment-cn 之后。
+  #   实测该分类是「国内娱乐」大杂烩，抖音/红果系域名大量在里面 ⇒ 它们先被直连放行，
+  #   四个广告表根本没机会执行。五份日志（10-16~10-17）实测：
+  #     · 红果 246 个放行主机里 **189 个 / 4,660 次请求** 是被该分类放行的；
+  #     · 「表里明明有却被放行」共 31 个主机，其中 16 个是被它抢先。
+  #   ⇒ 现改为：四个广告表在前，category-entertainment-cn 挪到本节之后（见第 6 节）。
+  #   这一段是 AdGuard 中文 + EasyList China + anti-AD 等的合并表，比原 geosite category-ads-all 激进；
+  #   仍排在 GEOSITE,CN / GEOIP,CN 之前，否则 CN 广告域会被国内兜底放走。
+  # ⚠ DirectCustom 仍刻意留在本节之前（自家域 / 公司系统优先，避免误拦）。
+  #   实测它的 119 条与四个广告表 304 条**重合 0 条**，顺序对它无影响；
+  #   代价是挂在直连父域下的广告子域（实测 12 个）仍会放行 —— 有意取舍，要收需改 DirectCustom 粒度。
   # 来源：shadowrocket-adr-rules 的 clash-ios 分支（main 三张表去掉策略列生成）。
   # 动作用 REJECT：小火箭那边必须写 REJECT-DROP 是它的 SDK 重连问题，mihomo 没这毛病；
-  # 真要静默丢包，把这三行的 REJECT 改成 REJECT-DROP 即可。
+  # 真要静默丢包，把这几行的 REJECT 改成 REJECT-DROP 即可。
+  - RULE-SET,AdBlockMihomoLite,REJECT
   - RULE-SET,ByteDanceAd,REJECT
   - RULE-SET,SoulAd,REJECT
   - RULE-SET,RejectCustom,REJECT
+
+  # ===== 6. 国内娱乐分类直连（原在第 4 节末，2026-10-17 挪到广告表之后）=====
+  # ⚠ 它是「国内娱乐」大杂烩分类，含大量字节系域名；放回广告表之前会让广告表对它们失效。
+  - GEOSITE,category-entertainment-cn,国内直连
 
   # ===== 7. 泄漏测试工具走代理 =====
   - DOMAIN-KEYWORD,browserleaks,节点选择
