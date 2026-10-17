@@ -120,12 +120,10 @@ dns:
 
   default-nameserver:        # 只能写纯 IP；现在所有 DoH 都是 IP 形式 ⇒ 理论上不再被调用，仅留作最后兜底
     - 223.5.5.5
-    # 2026-10-17 删掉 119.29.29.29：实测 该 IP 的 TCP:443 就不通（5s 超时），留着是死项，
-    #   真触发时只会白等一轮超时。腾讯侧已换成验证可用的 1.12.12.12（见上面各 nameserver）。
+    # 2026-10-17：腾讯侧 IP 形式 DoH 整组删除（119.29.29.29 / 1.12.12.12 在手机上均不可用，详见下方）。
 
   proxy-server-nameserver:   # 专门解析代理服务器域名，避免鸡生蛋
     - https://223.5.5.5/dns-query
-    - https://1.12.12.12/dns-query
 
   # ⚠️ 2026-10-17：**全部改成「IP 形式 DoH」**，彻底消掉明文 UDP:53。
   #   实测（clash-logs 2026-10-15→16，21 小时）：核心自己（mihomo）向 223.5.5.5:53 发了 **35,954 条**
@@ -133,20 +131,28 @@ dns:
   #   原因：`direct-nameserver` 与 `nameserver-policy` 三组原来写的是**主机名形式** DoH
   #   （https://dns.alidns.com/dns-query / https://doh.pub/dns-query），用它们每次都要先解析主机名
   #   ⇒ 落到 `default-nameserver` 的纯 IP ⇒ 明文 UDP:53。上面那句「bootstrap 量极小」的假设**被实测推翻**。
-  #   ⇒ 改成 IP 形式 DoH 后不再需要 bootstrap：UDP:53 归零，同时**加密不降级**（仍是阿里/腾讯/CF/Google）。
-  #   ⚠️ 腾讯侧用 1.12.12.12 而不是 119.29.29.29：2026-10-17 实测后者 **TCP:443 就不通**（NAS 侧 5s 超时），
-  #      1.12.12.12 则握手正常（证书 CN=120.53.53.53、SAN 覆盖本 IP、校验通过）。原 proxy-server-nameserver
-  #      里的 https://119.29.29.29/dns-query 很可能是**一直没生效**的。
-  #   附带收益：这 3.6 万条 UDP 会话是扩展内存爬到 40 MiB+、触发 iOS 内存压力被杀的主因。
+  #   ⇒ 改成 IP 形式 DoH 后不再需要 bootstrap：UDP:53 归零，同时**加密不降级**。
+  #   ⚠️ 但「UDP:53 归零」**并没有**解决内存被杀。2026-10-17 14:02→14:35 实测：UDP:53 = 0，
+  #      扩展仍在 14:34:57 被 iOS 以内存压力杀掉（MetricKit diagnostic，Crash/Hang/Disk 全 0）。
+  #      之前写在这里的「3.6 万条 UDP 是主因」**被实测推翻**，真凶是下一条：
+  #   ⚠️ 2026-10-17 二次实测：腾讯侧 IP 形式 DoH **在手机上全部不可用**，已整组删除。
+  #      · 119.29.29.29：NAS 侧 TCP:443 就不通（5s 超时）。
+  #      · 1.12.12.12：NAS 侧握手正常（CN=120.53.53.53、SAN 覆盖本 IP、TLS 通过）——
+  #        但**手机移动网络下返回 connection refused**。
+  #      · mihomo 对 refused **不退避**：06:34:56.476 起 60 ms 内对同一端点开 22 条新连接
+  #        （约 390 条/秒），0.86 秒后 footprint=42010296 触发 critical pressure 被杀。
+  #      ⇒ **一个「不通」的端点比没有端点危险得多。** 端点可用性只能看**手机会话日志**，
+  #        NAS 侧握手成功不具代表性（同一 IP，两边网络不同）。
+  #      ⇒ 国内侧现在只留阿里 https://223.5.5.5/dns-query（三份日志累计 1117 次连接、0 次 refused）。
   direct-nameserver:         # 直连流量用国内 DNS，国内查询不走境外
     # 2026-10-16：**只留 DoH，删掉明文 IP**。实测并发查询下**明文更快、每次都赢**，
     #   导致 17 小时内 3.7 万条连接（占全部 58%）是明文 UDP:53、96% 打 223.5.5.5 ——
     #   既回退隐私，又把日志/写盘量拉高（当天 15:05 扩展就因写盘 1.07 GB 被 iOS 杀掉）。
     #   DoH 走 HTTP/2 长连接可复用 ⇒ 同样查询量只产生约 1/26 的连接记录。
     #   ⚠️ 代价：DoH 全挂时直连解析没有明文兜底（`default-nameserver` 仍留纯 IP，那是 bootstrap，量极小）。
-    #   ⚠️ 双 DoH 互为备份；想再加一层兜底可补 `https://223.5.5.5/dns-query`（走 IP、免 bootstrap）。
+    #   ⚠️ 国内侧只留单一 DoH（阿里）。多写一个看似更稳，实测反而更脆：任一端点被拒就会触发
+    #      上文的零退避重试风暴（0.9 秒打爆 28 MiB）。真要加，必须先有手机侧「零 refused」的日志证据。
     - https://223.5.5.5/dns-query
-    - https://1.12.12.12/dns-query
 
   nameserver:                # 兜底解析器：境外 DoH（respect-rules 下经代理出去）
     - https://1.1.1.1/dns-query
@@ -157,18 +163,15 @@ dns:
     # geosite:apple 已覆盖 apple.com / icloud.com / itunes / ls 等子域
     # 2026-10-16：**三组全部改 DoH**。原来 Apple/icloud 是纯明文、geosite:cn 是「DoH + 明文混列」——
     #   实测混列时**明文更快、每次都会赢** ⇒ CN 与苹果域名的解析实际走明文 UDP:53（17h 内 3.7 万条）。
-    #   解析器仍是国内同一家（阿里/腾讯），所以**不改变当初「修证书异常」的结论**，只是把传输加密。
+    #   解析器仍是国内同一家（阿里），所以**不改变当初「修证书异常」的结论**，只是把传输加密。
     #   ⚠️ 注意 `nameserver-policy` **优先级高于** `direct-nameserver` ⇒ 只改后者是不够的。
     'geosite:apple':
       - https://223.5.5.5/dns-query
-      - https://1.12.12.12/dns-query
     '+.icloud.com':
       - https://223.5.5.5/dns-query
-      - https://1.12.12.12/dns-query
     # 国内域名：统一 DoH（原来混列明文 ⇒ 明文会赢）
     'geosite:cn':
       - https://223.5.5.5/dns-query
-      - https://1.12.12.12/dns-query
 
   fallback:
     - https://1.1.1.1/dns-query
