@@ -373,11 +373,12 @@ rules:
   # 广告拦截已挪到第 5 节（国内直连之后），原因见那一节。
   - RULE-SET,BlockHttpDNS,REJECT
 
-  # ===== 2. WebRTC 穿透截断 =====
-  # ⚠ 会打断微信 / 腾讯会议 / Google Meet / Discord 的 P2P 音视频（退回中继或直接失败）
-  #   要开视频通话就把这 4 行整段注释掉
-  - DST-PORT,3478,REJECT
-  - DST-PORT,5349,REJECT
+  # ===== 2. WebRTC 穿透截断（按域名，不按端口）=====
+  # 2026-10-17 改：删掉 DST-PORT,3478 / DST-PORT,5349 两条。
+  #   按端口拦不看域名，会误伤国内 P2P 语音 —— 实测 5 份日志里
+  #   twns.p2ptun.qq.com:3478（微信/QQ 语音）、vc-mirror.ndcpp.com:3478（字节视频通话）都被命中，
+  #   而真正该拦的 WebRTC 只有 stun.services.mozilla.com（含 "stun"，靠下面的关键字规则仍能拦住）。
+  # ⚠ 代价：直接对裸 IP:3478 建连、域名不含 stun/turn 的客户端拦不住（15 万条命中里未出现过）。
   - DOMAIN-KEYWORD,stun,REJECT
   - DOMAIN-KEYWORD,turn,REJECT
 
