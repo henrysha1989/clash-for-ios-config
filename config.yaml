@@ -403,28 +403,6 @@ rules:
   # （与 Shadowrocket 那份 direct-custom.list 同源，改表两端同时生效）
   - RULE-SET,DirectCustom,国内直连
 
-  # ===== 4.5 大盘表误拦的功能域放行（2026-10-17 抓包实测）=====
-  # 大盘表（adblockmihomelite）把这些「功能性域名」当广告拦了。本节放在广告表之前，
-  # 让它们先走直连，避免误伤。依据与逐条说明：ops/clash/广告拦截-收口清单-20261017.md 第二节。
-  # ⚠ 这些是「放行」不是「拦截」，加的时候别搞反。
-  # ── 京东（实测 mapi 被拦 4 次）──
-  - DOMAIN-SUFFIX,mapi.m.jd.com,国内直连
-  - DOMAIN-SUFFIX,dns.jd.com,国内直连
-  - DOMAIN-SUFFIX,img2.360buyimg.com,国内直连
-  # ── 阿里（实测 cdn.ynuf 被拦 2 次；无痕验证被拦会影响淘宝/支付宝登录与滑块）──
-  - DOMAIN-SUFFIX,cdn.ynuf.aliapp.org,国内直连
-  # ── 美团 HTTP DNS（同族三个域只拦了主域，回退链路时好时坏）──
-  - DOMAIN-SUFFIX,httpdns.meituan.com,国内直连
-  # ── 中国移动认证：一键登录/号码认证，拦了登录直接失败 ──
-  - DOMAIN-SUFFIX,config.cmpassport.com,国内直连
-  - DOMAIN-SUFFIX,config1.cmpassport.com,国内直连
-  - DOMAIN-SUFFIX,config2.cmpassport.com,国内直连
-  # ── MobTech ShareSDK：第三方分享，拦了 App 内分享无响应 ──
-  - DOMAIN-SUFFIX,api.share.mob.com,国内直连
-  # ── 腾讯会议信令 / 腾讯推送 TPNS ──
-  - DOMAIN-SUFFIX,snowflake.qq.com,国内直连
-  - DOMAIN-SUFFIX,guid.tpns.tencent.com,国内直连
-
   # ===== 5. 广告拦截 =====
   # ⚠ 2026-10-17 调整顺序：本节原先排在 GEOSITE,category-entertainment-cn 之后。
   #   实测该分类是「国内娱乐」大杂烩，抖音/红果系域名大量在里面 ⇒ 它们先被直连放行，
@@ -435,7 +413,7 @@ rules:
   #   这一段是 AdGuard 中文 + EasyList China + anti-AD 等的合并表，比原 geosite category-ads-all 激进；
   #   仍排在 GEOSITE,CN / GEOIP,CN 之前，否则 CN 广告域会被国内兜底放走。
   # ⚠ DirectCustom 仍刻意留在本节之前（自家域 / 公司系统优先，避免误拦）。
-  #   实测它的 119 条与四个广告表 304 条**重合 0 条**，顺序对它无影响；
+  #   实测它与四个广告表 304 条**重合 0 条**，顺序对它无影响（2026-10-17 后直连表 130 条，含 11 条误拦放行）；
   #   代价是挂在直连父域下的广告子域（实测 12 个）仍会放行 —— 有意取舍，要收需改 DirectCustom 粒度。
   # 来源：shadowrocket-adr-rules 的 clash-ios 分支（main 三张表去掉策略列生成）。
   # 动作用 REJECT：小火箭那边必须写 REJECT-DROP 是它的 SDK 重连问题，mihomo 没这毛病；
