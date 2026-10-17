@@ -118,9 +118,10 @@ dns:
   fake-ip-range6: fdfe:dcba:9876::1/64   # fake-ip 的 v6 池（官方示例取值，与 tun 的 9877 段分开）
   use-hosts: true
 
-  default-nameserver:        # 只能写纯 IP，用于解析下面那些 DoH 的主机名
+  default-nameserver:        # 只能写纯 IP；现在所有 DoH 都是 IP 形式 ⇒ 理论上不再被调用，仅留作最后兜底
     - 223.5.5.5
-    - 119.29.29.29
+    # 2026-10-17 删掉 119.29.29.29：实测 该 IP 的 TCP:443 就不通（5s 超时），留着是死项，
+    #   真触发时只会白等一轮超时。腾讯侧已换成验证可用的 1.12.12.12（见上面各 nameserver）。
 
   proxy-server-nameserver:   # 专门解析代理服务器域名，避免鸡生蛋
     - https://223.5.5.5/dns-query
