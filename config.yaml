@@ -404,6 +404,18 @@ rules:
   # （与 Shadowrocket 那份 direct-custom.list 同源，改表两端同时生效）
   - RULE-SET,DirectCustom,国内直连
 
+  # ===== 4b. 重试风暴治理（2026-10-18）=====
+  # 这些域本来就被第 5 节的广告表 REJECT；实测（clash-logs-2026-10-18-1643.log）它们
+  # 83–100% 是「同一目标 1 秒内重试」，jspcdn 峰值 3,244 条/分钟（34 秒打完）。
+  # 改成 REJECT-DROP：不发 RST，让 App 等超时，重试频率大幅下降。
+  # 只动纯埋点/统计域；ecombdapi（电商功能）、tnc0（番茄内容 CDN）不动。
+  # 回滚：删掉本节即可（广告表仍会 REJECT）。
+  - DOMAIN-SUFFIX,jspcdn.cn,REJECT-DROP
+  - DOMAIN,rtlog3-applog-hl.amemv.com,REJECT-DROP
+  - DOMAIN,rtlog5-applog-hl.amemv.com,REJECT-DROP
+  - DOMAIN,log5-applog-lf.fqnovel.com,REJECT-DROP
+  - DOMAIN-SUFFIX,ads5-normal-lf.zijieapi.com,REJECT-DROP
+
   # ===== 5. 广告拦截 =====
   # ⚠ 2026-10-17 调整顺序：本节原先排在 GEOSITE,category-entertainment-cn 之后。
   #   实测该分类是「国内娱乐」大杂烩，抖音/红果系域名大量在里面 ⇒ 它们先被直连放行，
