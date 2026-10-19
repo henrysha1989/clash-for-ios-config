@@ -402,21 +402,14 @@ rules:
   # （与 Shadowrocket 那份 direct-custom.list 同源，改表两端同时生效）
   - RULE-SET,DirectCustom,国内直连
 
-  # ===== 4b. 重试风暴域（2026-10-18 建，2026-10-19 改回 REJECT）=====
-  # 这些域本来就被第 5 节的广告表拦掉；列在这里只是把它们提到前面、语义更明确。
-  # ⚠ 2026-10-19：原写法是 `REJECT-DROP`（不发 RST、让 App 等超时），实测**无效**，已改回 `REJECT`：
-  #   · log5-applog 在 DROP 后仍 2.16 次/分、**96% 在 1 秒内重试**（字节系 SDK 直接并发新连接，不等超时）；
-  #   · ads5 前后都是 1.13 次/分，零变化；
-  #   · DROP 的代价是连接挂到超时 ⇒ 占 NE 会话槽/内存（实测 34 MiB 触发 layer 1、quota full 关连接）。
-  #   官方文档对 REJECT-DROP 只有一句“静默抛弃请求”，没有适用场景建议；mihomo 下它治不了重试风暴
-  #   （小火箭那边有效是另一个内核实现）。真要“隐蔽拦截/防探测”再单独给某个域写 DROP。
-  # 只列纯埋点/统计/广告域；ecombdapi（电商功能）、tnc0（番茄内容 CDN）不动。
-  # 回滚：删掉本节即可（第 5 节广告表仍会兜住这些域）。
-  - DOMAIN-SUFFIX,jspcdn.cn,REJECT
-  - DOMAIN,rtlog3-applog-hl.amemv.com,REJECT
-  - DOMAIN,rtlog5-applog-hl.amemv.com,REJECT
-  - DOMAIN,log5-applog-lf.fqnovel.com,REJECT
-  - DOMAIN-SUFFIX,ads5-normal-lf.zijieapi.com,REJECT
+  # ===== 4b. （2026-10-19 撤销：内联域已归位到自建表）=====
+  # 原先这里有 5 条内联 REJECT（10-18 为治重试风暴临时加的，后来从 REJECT-DROP 改回 REJECT）。
+  # 10-19 按「策略规则进自建表、配置只留 RULE-SET 引用」的维护约定清点，覆盖情况：
+  #   · jspcdn.cn / rtlog3-applog-hl.amemv.com / ads5-normal-lf.zijieapi.com → 已被 lite 表(AdBlockMihomoLite)覆盖；
+  #   · log5-applog-lf.fqnovel.com → 已在 bytedance-ad.list（自建表）；
+  #   · rtlog5-applog-hl.amemv.com → 哪都没有，已补进 bytedance-ad.list（main，10-19）。
+  # 所以本节整段删除；以后同类域一律进 shadowrocket-adr-rules@main 的自建表，不写内联。
+  # 注：REJECT-DROP 已在 10-19 全部改回 REJECT（mihomo 下 DROP 不降重试，只挂连接）。
 
   # ===== 5. 广告拦截 =====
   # ⚠ 2026-10-17 调整顺序：本节原先排在 GEOSITE,category-entertainment-cn 之后。
