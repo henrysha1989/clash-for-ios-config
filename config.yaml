@@ -56,8 +56,10 @@ tun:
   stack: gvisor
   auto-route: false                # iOS 强制 false：路由由 App 自己装（NEPacketTunnelNetworkSettings）
   auto-detect-interface: false     # 同上；这两项只在 PC / mihomo 上才需要 true
-  strict-route: true
-  endpoint-independent-nat: true   # UDP 打洞 / 联机游戏 NAT 更友好
+  # 2026-10-19 清理（依据官方文档 wiki.metacubex.one/config/inbound/tun/）：
+  #   strict-route：文档写明“启用 auto-route 时”才生效；iOS 上 auto-route 被强制 false ⇒ 空转，删。
+  #   endpoint-independent-nat：文档写明“性能可能会略有下降，不建议在不需要的时候开启”；
+  #     没有 UDP 打洞 / 联机游戏需求 ⇒ 删（默认 false）。要恢复就写回 `endpoint-independent-nat: true`。
   # v6 隧道地址段。内核默认是 fdfe:dcba:9876::1/126；这里显式写 9877 段，
   # 与下面 dns.fake-ip-range6 的 9876 段分开，避免接口地址和假 IP 池撞车。
   inet6-address: [fdfe:dcba:9877::1/126]
@@ -82,7 +84,7 @@ sniffer:
   sniff:
     HTTP:
       ports: [80, 8080-8880]
-      override-destination: true
+      # override-destination 不用在这里重复写：全局默认就是 true（2026-10-19 依据官方文档清理）
     TLS:
       ports: [443, 8443]
   skip-domain:
@@ -173,17 +175,11 @@ dns:
     'geosite:cn':
       - https://223.5.5.5/dns-query
 
-  fallback:
-    - https://1.1.1.1/dns-query
-    - https://8.8.8.8/dns-query
-  fallback-lazy-query: true  # 主解析没被判污染就不查 fallback，省流量
-  fallback-filter:
-    geoip: true
-    geoip-code: CN
-    ipcidr:
-      - 240.0.0.0/4
-      - 127.0.0.0/8
-      - 0.0.0.0/32
+  # 2026-10-19：删掉 fallback / fallback-lazy-query / fallback-filter（依据官方文档 config/dns/）。
+  #   原因：原来的 fallback 与上面的 nameserver 是**同一组**（1.1.1.1 + 8.8.8.8）⇒ 判污染后结果不变；
+  #   而 fallback-lazy-query 下，境外域名会把同一组服务器再查一遍，纯多一次往返。
+  #   nameserver 本身是加密 DoH，没有被投毒的前提 ⇒ 这层 fallback 没有意义。
+  #   要恢复：写一组真正不同的解析器（例如 tls://9.9.9.9），再补 fallback-filter。
 
   fake-ip-filter:
     - '+.521989.xyz'           # 【个人定制区】自建加速站 / 仓库域名
