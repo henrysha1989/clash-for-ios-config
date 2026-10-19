@@ -58,8 +58,10 @@ tun:
   auto-detect-interface: false     # 同上；这两项只在 PC / mihomo 上才需要 true
   # 2026-10-19 清理（依据官方文档 wiki.metacubex.one/config/inbound/tun/）：
   #   strict-route：文档写明“启用 auto-route 时”才生效；iOS 上 auto-route 被强制 false ⇒ 空转，删。
-  #   endpoint-independent-nat：文档写明“性能可能会略有下降，不建议在不需要的时候开启”；
-  #     没有 UDP 打洞 / 联机游戏需求 ⇒ 删（默认 false）。要恢复就写回 `endpoint-independent-nat: true`。
+  #   endpoint-independent-nat：**保留**。官方虽写“性能可能略降、非必需不建议开”，
+  #     但 owner 的硬要求是「语音不能被影响」⇒ 保持 EIM（端点无关映射），让 STUN/打洞/NAT 穿越更稳。
+  #     只有确认语音完全不依赖它、且在意那点性能开销时，才删掉这行（默认 false）。
+  endpoint-independent-nat: true
   # v6 隧道地址段。内核默认是 fdfe:dcba:9876::1/126；这里显式写 9877 段，
   # 与下面 dns.fake-ip-range6 的 9876 段分开，避免接口地址和假 IP 池撞车。
   inet6-address: [fdfe:dcba:9877::1/126]
