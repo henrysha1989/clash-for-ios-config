@@ -367,10 +367,8 @@ rule-providers:
 # 9. 分流规则（命中即停，顺序 = 优先级）
 # ------------------------------------------------------------------------------
 rules:
-  # ===== 1. HttpDNS 拦截 =====
-  # 广告拦截已挪到第 5 节（国内直连之后），原因见那一节。
-  - RULE-SET,BlockHttpDNS,REJECT
-
+  # 编号说明：原「1. HttpDNS 拦截」已于 2026-10-20 下移到「4a」（必须在 DirectCustom 之后），
+  # 其余节号保持原样，避免大改注释。
   # ===== 2. WebRTC 穿透截断（按域名，不按端口）=====
   # 2026-10-17 改：删掉 DST-PORT,3478 / DST-PORT,5349 两条。
   #   按端口拦不看域名，会误伤国内 P2P 语音 —— 实测 5 份日志里
@@ -401,6 +399,12 @@ rules:
   # 公司核心业务系统（megarobo.*）与抖音/腾讯等实测需直连的域，统一走自建直连表
   # （与 Shadowrocket 那份 direct-custom.list 同源，改表两端同时生效）
   - RULE-SET,DirectCustom,国内直连
+
+  # ===== 4a. HttpDNS 拦截（2026-10-20 从第 1 节下移）=====
+  # 原先它在所有规则之前，导致 DirectCustom 里放行的 HTTPDNS 域永远轮不到（实测 dns.weixin.qq.com.cn
+  # 6.9 小时内被 BlockHttpDNS 拦了 329 次 —— 白名单形同虚设）。
+  # 现在放在 DirectCustom 之后：显式放行的放行，其它 HTTPDNS 端点仍然拦（仍早于广告表）。
+  - RULE-SET,BlockHttpDNS,REJECT
 
   # ===== 4b. （2026-10-19 撤销：内联域已归位到自建表）=====
   # 原先这里有 5 条内联 REJECT（10-18 为治重试风暴临时加的，后来从 REJECT-DROP 改回 REJECT）。
