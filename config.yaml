@@ -270,7 +270,7 @@ proxy-groups:
     type: url-test
     include-all: true
     exclude-filter: '(?i)(剩余|到期|重置|官网|订阅|流量|距离|套餐|过期|expire|traffic|website|通知)'
-    url: http://www.gstatic.com/generate_204
+    url: https://www.gstatic.com/generate_204   # 2026-10-24：http → https，避免健康检查被节点侧劫持（核心会就此告警）
     interval: 600
     tolerance: 100
     lazy: true
@@ -410,6 +410,10 @@ rules:
   # ===== 4. 国内专项直连 =====
   - RULE-SET,Tesla,国内直连
   - GEOSITE,apple@cn,国内直连
+  # 2026-10-24：苹果广告 SDK 会落到下面 apple.com 直连兜底里（10-23 实测 ca.iadsdk.apple.com 被直连 21 次，
+  # 只有 CNAME 变体 ...akadns.net 被 AdsCustom 拦到；10-24 又见 cf.iadsdk.apple.com）
+  # ⇒ 用后缀拦整个 iadsdk 子域，放在通用后缀之前。apple.com 其它子域仍直连。
+  - DOMAIN-SUFFIX,iadsdk.apple.com,REJECT
   - DOMAIN-SUFFIX,apple.com,国内直连        # geosite 分类漏网时兜底（含 itunes 等子域）
   - DOMAIN-SUFFIX,icloud.com,国内直连
   - GEOSITE,dingtalk,国内直连
