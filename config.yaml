@@ -413,6 +413,9 @@ rules:
   # 2026-10-24：苹果广告 SDK 会落到下面 apple.com 直连兜底里（10-23 实测 ca.iadsdk.apple.com 被直连 21 次，
   # 只有 CNAME 变体 ...akadns.net 被 AdsCustom 拦到；10-24 又见 cf.iadsdk.apple.com）
   # ⇒ 用后缀拦整个 iadsdk 子域，放在通用后缀之前。apple.com 其它子域仍直连。
+  # 2026-11-04 漏网审计：iadsdk 会 CNAME 到第三方 CDN（iadsdk.qtlcdn.com / ca.iadsdk.apple.com.w.cdngslb.com），
+  # 精确后缀拦不住 CNAME 目标，改用 keyword 收口（实测这两类各逃逸 3 / 2 次）。
+  - DOMAIN-KEYWORD,iadsdk,REJECT
   - DOMAIN-SUFFIX,iadsdk.apple.com,REJECT
   - DOMAIN-SUFFIX,apple.com,国内直连        # geosite 分类漏网时兜底（含 itunes 等子域）
   - DOMAIN-SUFFIX,icloud.com,国内直连
@@ -422,6 +425,10 @@ rules:
   - DOMAIN-SUFFIX,laiwang.com,国内直连
   # 公司核心业务系统（megarobo.*）与抖音/腾讯等实测需直连的域，统一走自建直连表
   # （与 Shadowrocket 那份 direct-custom.list 同源，改表两端同时生效）
+  # 2026-11-04 漏网审计：DirectCustom 里的 DOMAIN-SUFFIX,ecombdapi.com,DIRECT（10-21 修小黄车时加的）
+  # 排在这一行之前，把 ByteDanceAd 表里 24 条 ecombdapi 子域规则全压死。其中 23 条本就是电商 API、
+  # 需要直连，只有「联盟」那几条是广告 ⇒ 只把联盟端单点提到直连表之前，其余一律不动（免得小黄车再坏）。
+  - DOMAIN-KEYWORD,lianmengapi,REJECT
   - RULE-SET,DirectCustom,国内直连
   # 自建通用广告表（2026-10-20 日志挖掘产出，263 条）
   - RULE-SET,AdsCustom,REJECT
