@@ -55,9 +55,7 @@ sniffer:
     - '+.megarobo.tech'
     - '+.megarobo.info'
 
-# ===== 5. DNS（fake-ip） =====
-geo-auto-update: true
-geo-update-interval: 168
+# ===== 5. Geo 数据源 + DNS（fake-ip） =====
 geox-url:                      # 【个人定制区】加速前缀，换环境可改回官方地址
   geoip: "https://git.521989.xyz/https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat"
   geosite: "https://git.521989.xyz/https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat"
