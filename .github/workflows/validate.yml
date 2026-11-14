@@ -40,8 +40,10 @@ jobs:
           for k in rules proxy-groups rule-providers dns; do
             grep -q "^$k:" "$f" || { echo "::error::$f 缺少 ${k}: 段"; exit 1; }
           done
+          # 节点由客户端注入：proxies 只允许是空列表
           if grep -q "^proxies:" "$f"; then
-            echo "::error::仓库不该包含 proxies:（节点由客户端注入）"; exit 1
+            grep -qE "^proxies:\s*\[\s*\]\s*$" "$f" \
+              || { echo "::error::proxies: 段非空——节点不该提交进公开仓库"; exit 1; }
           fi
           n=$(grep -c "^  - " "$f" || true)
           echo "条目行数：$n"
