@@ -1,0 +1,103 @@
+name: Mihomo Config Validation
+
+# 只做一件事：每次改动后验证 config.yaml 能被 mihomo 正确解析，并且关键结构没被误删。
+# 不做定时巡检（owner 2026-11-14：不需要长期扫描）。
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - '*.yaml'
+      - '*.yml'
+      - '.github/workflows/validate.yml'
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CONFIG_FILE: config.yaml
+  MIHOMO_VERSION: v1.19.32
+  PROXY_PREFIX: https://git.521989.xyz/
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 结构断言
+        run: |
+          set -e
+          f="$CONFIG_FILE"
+          [ -f "$f" ] || { echo "::error::缺少 $f"; exit 1; }
+          for k in rules proxy-groups rule-providers dns; do
+            grep -q "^$k:" "$f" || { echo "::error::$f 缺少 ${k}: 段"; exit 1; }
+          done
+          if grep -q "^proxies:" "$f"; then
+            echo "::error::仓库不该包含 proxies:（节点由客户端注入）"; exit 1
+          fi
+          n=$(grep -c "^  - " "$f" || true)
+          echo "条目行数：$n"
+          [ "$n" -ge 30 ] || { echo "::error::条目行数异常（$n < 30），疑似误删"; exit 1; }
+
+      - name: 还原 mihomo 核心缓存
+        id: core
+        uses: actions/cache@v4
+        with:
+          path: /tmp/mihomo-test
+          key: mihomo-${{ env.MIHOMO_VERSION }}
+
+      - name: 确保 mihomo 可用
+        run: |
+          set -e
+          mkdir -p /tmp/mihomo-test
+          if [ -x /tmp/mihomo-test/mihomo ]; then
+            /tmp/mihomo-test/mihomo -v
+            exit 0
+          fi
+          URL="https://github.com/MetaCubeX/mihomo/releases/download/${MIHOMO_VERSION}/mihomo-linux-amd64-${MIHOMO_VERSION}.gz"
+          curl -fsSL --retry 3 --retry-delay 2 -o /tmp/mihomo.gz "$URL" \
+            || curl -fsSL --retry 3 --retry-delay 2 -o /tmp/mihomo.gz "https://gh-proxy.com/$URL"
+          gunzip -c /tmp/mihomo.gz > /tmp/mihomo-test/mihomo
+          chmod +x /tmp/mihomo-test/mihomo
+          /tmp/mihomo-test/mihomo -v
+
+      - name: 剥离加速前缀并校验完整性
+        run: |
+          set -e
+          python3 - "$CONFIG_FILE" "$PROXY_PREFIX" <<'PY'
+          import sys
+          src, prefix = sys.argv[1], sys.argv[2]
+          raw = open(src, encoding="utf-8").read()
+          out = raw.replace(prefix, "")
+          open("/tmp/mihomo-test/config.yaml", "w", encoding="utf-8").write(out)
+          a, b = raw.splitlines(), out.splitlines()
+          if len(a) != len(b):
+              sys.exit("::error::剥离后行数变化，拒绝继续")
+          changed = [i for i, (x, y) in enumerate(zip(a, b)) if x != y]
+          bad = [i + 1 for i in changed if prefix not in a[i]]
+          if bad:
+              sys.exit(f"::error::剥离改动了不该改的行：{bad[:5]}")
+          print(f"剥离完成：改动 {len(changed)} 行，均为含加速前缀的 URL 行")
+          PY
+
+      - name: mihomo 配置测试
+        run: |
+          /tmp/mihomo-test/mihomo -t -d /tmp/mihomo-test -f /tmp/mihomo-test/config.yaml
+
+      - name: 结果摘要
+        if: always()
+        run: |
+          {
+            echo "### 配置校验"
+            echo "- 配置：\`$CONFIG_FILE\`"
+            echo "- 核心：\`$MIHOMO_VERSION\`"
+            echo "- 结论：$([ "${{ job.status }}" = "success" ] && echo '✅ 通过' || echo '❌ 失败，见上方日志')"
+          } >> "$GITHUB_STEP_SUMMARY"
