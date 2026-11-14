@@ -1,84 +1,40 @@
-# ==============================================================================
-#  Mihomo / Clash 配置 —— iOS 手机优先（Clash App · Hako-mihomo 内核 · TUN）
-# ------------------------------------------------------------------------------
-#  仓库：https://github.com/henrysha1989/clash-for-ios-config
-#  ⚠️ 公开仓库：本文件不含任何节点、订阅地址或凭据 —— 请勿往里填。
-# ------------------------------------------------------------------------------
-#  使用说明
-#   1) 节点**不用写进本文件**：iOS 端在 App 的「节点来源」里单独加（详见第 6 节），
-#      配置与节点分开管理。只有桌面 mihomo 才需要在文件里配 `proxies:` / `proxy-providers:`。
-#      策略组全部 include-all，加节点 / 换订阅都不用改 group。
-#   2) 未填节点时配置仍能启动：空组会回退成内置 COMPATIBLE（≈直连），
-#      所以先填好节点再开 TUN，避免"以为在代理其实在裸奔"。
-#   3) 标了【个人定制区】的段落（自建服务 / 公司域名 / 加速前缀）换环境时整段删掉即可。
-# ------------------------------------------------------------------------------
-#  本文件按 iOS 内核的真实行为写过（核对来源：内核仓库 bind/clash/config_deviations.go，
-#  2026-10-11 对 v1.19.32-clash.1 核对）：
-#   · 下列键 iOS 端是「强制值」，本文件写的就跟强制值一致，因此不会在 App 里
-#     冒出偏差提示：dns.enable=true / tun.enable=true / find-process-mode=off /
-#     profile.store-fake-ip=true / unified-delay=true / tun.stack=gvisor。
-#   · tun.auto-route 与 tun.auto-detect-interface 在 iOS 上被强制 false
-#     （路由由 App 用 NEPacketTunnelNetworkSettings 装），故本文件写 false；
-#     同一份文件拿到 PC / mihomo 上用时，这两项要改回 true。
-#   · geo-auto-update / geo-update-interval / geox-url 由 **App** 读取并负责下载，
-#     扩展自身不下载。App 已内置一份 geo 数据（MetaCubeX/meta-rules-dat），
-#     这里配的是自建加速前缀，用于 App 侧更新。
-#   · keep-alive-idle / keep-alive-interval 刻意不写：内核 darwin 默认
-#     5 分钟 / 75 秒（component/keepalive/defaults_darwin.go），显式写 15 / 30
-#     会让蜂窝网络上的 TCP 保活探测过密、更费电。
-#   · 规则集用 MRS 二进制格式，内核基于 mihomo 1.19.x，支持。
-#   · iOS 上不可用的东西（写了也没用）：easytier、faketcp、redir、tproxy、
-#     tun.include-* / tun.exclude-*、iptables、clash-for-android。
-# ==============================================================================
+# ==================================================================
+# Mihomo 配置 · iOS 客户端（Hako / mihomo 内核）
+# 仓库：https://github.com/henrysha1989/clash-for-ios-config
+# 节点不进本文件（由 App 侧管理）；改动说明与逐条理由见 README / 提交历史。
+# ==================================================================
 
-# ------------------------------------------------------------------------------
-# 1. 基础运行设置（轻量、省电、防杀后台）
-# ------------------------------------------------------------------------------
+# ⚠️ 公开仓库：本文件不含节点 / 订阅地址 / 凭据
+
+# ===== 1. 基础运行设置 =====
 mixed-port: 7890
 allow-lan: false
 mode: rule
 log-level: warning
-# ⚠️ 必须 true：内核 parseIPV6() 在 ipv6=false 时会把 tun.inet6-address 清空 ⇒
-#    App 拿不到 v6 地址就声明 applied=false（隧道里没有 v6）⇒ IPv6 流量与 v6 DNS
-#    全部走物理链路（实测 browserleaks 会看到运营商解析器）。详见 README。
+# ⚠️ ipv6 必须 true：内核 parseIPV6() 在 ipv6=false 时会清空 tun.inet6-address
 ipv6: true
 unified-delay: true          # 延迟只算握手耗时，数值更接近真实体验
 tcp-concurrent: true         # 多 IP 并发拨号，优选最快的一个
 find-process-mode: 'off'     # 移动端不做进程匹配，省 CPU / 电
-# keep-alive-idle / keep-alive-interval 不写：走内核 darwin 默认（5 分钟 / 75 秒）。
-# 显式写 15 / 30（上游默认）会让蜂窝网络上的保活探测过密，更费电。
 
-# ------------------------------------------------------------------------------
-# 2. TUN 网络栈（切换 Wi-Fi / 蜂窝不断网，用户态栈不碰内核）
-# ------------------------------------------------------------------------------
+# ===== 2. TUN 网络栈 =====
 tun:
   enable: true
   stack: gvisor
   auto-route: false                # iOS 强制 false：路由由 App 自己装（NEPacketTunnelNetworkSettings）
   auto-detect-interface: false     # 同上；这两项只在 PC / mihomo 上才需要 true
-  # 2026-10-19 清理（依据官方文档 wiki.metacubex.one/config/inbound/tun/）：
-  #   strict-route：文档写明“启用 auto-route 时”才生效；iOS 上 auto-route 被强制 false ⇒ 空转，删。
-  #   endpoint-independent-nat：**保留**。官方虽写“性能可能略降、非必需不建议开”，
-  #     但 owner 的硬要求是「语音不能被影响」⇒ 保持 EIM（端点无关映射），让 STUN/打洞/NAT 穿越更稳。
-  #     只有确认语音完全不依赖它、且在意那点性能开销时，才删掉这行（默认 false）。
   endpoint-independent-nat: true
-  # v6 隧道地址段。内核默认是 fdfe:dcba:9876::1/126；这里显式写 9877 段，
-  # 与下面 dns.fake-ip-range6 的 9876 段分开，避免接口地址和假 IP 池撞车。
   inet6-address: [fdfe:dcba:9877::1/126]
   dns-hijack:
     - any:53
     - tcp://any:53
 
-# ------------------------------------------------------------------------------
-# 3. 状态持久化
-# ------------------------------------------------------------------------------
+# ===== 3. 状态持久化 =====
 profile:
   store-selected: true       # 记住手动选择的节点
   store-fake-ip: true        # 重启后 fake-ip 映射不丢，连接不错乱
 
-# ------------------------------------------------------------------------------
-# 4. 流量嗅探（QUIC 嗅探保持关闭，彻底放行阿里 / 钉钉与系统核心）
-# ------------------------------------------------------------------------------
+# ===== 4. 流量嗅探 =====
 sniffer:
   enable: true
   force-dns-mapping: true
@@ -86,7 +42,6 @@ sniffer:
   sniff:
     HTTP:
       ports: [80, 8080-8880]
-      # override-destination 不用在这里重复写：全局默认就是 true（2026-10-19 依据官方文档清理）
     TLS:
       ports: [443, 8443]
   skip-domain:
@@ -100,10 +55,7 @@ sniffer:
     - '+.megarobo.tech'
     - '+.megarobo.info'
 
-# ------------------------------------------------------------------------------
-# 5. DNS（fake-ip + 分流解析；防泄漏、防 Apple 断流）
-#    Geo 数据走自建加速前缀下载，避免 raw.githubusercontent 拉取超时
-# ------------------------------------------------------------------------------
+# ===== 5. DNS（fake-ip） =====
 geo-auto-update: true
 geo-update-interval: 168
 geox-url:                      # 【个人定制区】加速前缀，换环境可改回官方地址
@@ -124,38 +76,13 @@ dns:
 
   default-nameserver:        # 只能写纯 IP；现在所有 DoH 都是 IP 形式 ⇒ 理论上不再被调用，仅留作最后兜底
     - 223.5.5.5
-    # 2026-10-17：腾讯侧 IP 形式 DoH 整组删除（119.29.29.29 / 1.12.12.12 在手机上均不可用，详见下方）。
 
   proxy-server-nameserver:   # 专门解析代理服务器域名，避免鸡生蛋
     - https://223.5.5.5/dns-query
 
-  # ⚠️ 2026-10-17：**全部改成「IP 形式 DoH」**，彻底消掉明文 UDP:53。
-  #   实测（clash-logs 2026-10-15→16，21 小时）：核心自己（mihomo）向 223.5.5.5:53 发了 **35,954 条**
-  #   明文 UDP 查询、119.29.29.29:53 1,364 条 —— 占全部 UDP 会话的 **92%**（40,618 里的 37,342）。
-  #   原因：`direct-nameserver` 与 `nameserver-policy` 三组原来写的是**主机名形式** DoH
-  #   （https://dns.alidns.com/dns-query / https://doh.pub/dns-query），用它们每次都要先解析主机名
-  #   ⇒ 落到 `default-nameserver` 的纯 IP ⇒ 明文 UDP:53。上面那句「bootstrap 量极小」的假设**被实测推翻**。
-  #   ⇒ 改成 IP 形式 DoH 后不再需要 bootstrap：UDP:53 归零，同时**加密不降级**。
-  #   ⚠️ 但「UDP:53 归零」**并没有**解决内存被杀。2026-10-17 14:02→14:35 实测：UDP:53 = 0，
-  #      扩展仍在 14:34:57 被 iOS 以内存压力杀掉（MetricKit diagnostic，Crash/Hang/Disk 全 0）。
-  #      之前写在这里的「3.6 万条 UDP 是主因」**被实测推翻**，真凶是下一条：
-  #   ⚠️ 2026-10-17 二次实测：腾讯侧 IP 形式 DoH **在手机上全部不可用**，已整组删除。
-  #      · 119.29.29.29：NAS 侧 TCP:443 就不通（5s 超时）。
-  #      · 1.12.12.12：NAS 侧握手正常（CN=120.53.53.53、SAN 覆盖本 IP、TLS 通过）——
-  #        但**手机移动网络下返回 connection refused**。
-  #      · mihomo 对 refused **不退避**：06:34:56.476 起 60 ms 内对同一端点开 22 条新连接
-  #        （约 390 条/秒），0.86 秒后 footprint=42010296 触发 critical pressure 被杀。
-  #      ⇒ **一个「不通」的端点比没有端点危险得多。** 端点可用性只能看**手机会话日志**，
-  #        NAS 侧握手成功不具代表性（同一 IP，两边网络不同）。
-  #      ⇒ 国内侧现在只留阿里 https://223.5.5.5/dns-query（三份日志累计 1117 次连接、0 次 refused）。
+  # ⚠️ DoH 一律用 IP 形式，消掉明文 UDP:53
   direct-nameserver:         # 直连流量用国内 DNS，国内查询不走境外
-    # 2026-10-16：**只留 DoH，删掉明文 IP**。实测并发查询下**明文更快、每次都赢**，
-    #   导致 17 小时内 3.7 万条连接（占全部 58%）是明文 UDP:53、96% 打 223.5.5.5 ——
-    #   既回退隐私，又把日志/写盘量拉高（当天 15:05 扩展就因写盘 1.07 GB 被 iOS 杀掉）。
-    #   DoH 走 HTTP/2 长连接可复用 ⇒ 同样查询量只产生约 1/26 的连接记录。
-    #   ⚠️ 代价：DoH 全挂时直连解析没有明文兜底（`default-nameserver` 仍留纯 IP，那是 bootstrap，量极小）。
-    #   ⚠️ 国内侧只留单一 DoH（阿里）。多写一个看似更稳，实测反而更脆：任一端点被拒就会触发
-    #      上文的零退避重试风暴（0.9 秒打爆 28 MiB）。真要加，必须先有手机侧「零 refused」的日志证据。
+    # ⚠️ 国内侧不要再加第二个 DoH：零退避重试风暴（0.9 秒打爆 28 MiB）
     - https://223.5.5.5/dns-query
 
   nameserver:                # 兜底解析器：境外 DoH（respect-rules 下经代理出去）
@@ -163,25 +90,13 @@ dns:
     - https://8.8.8.8/dns-query
 
   nameserver-policy:
-    # 苹果服务与系统推送强制国内 DNS，解决 DNS 挂死与证书异常
-    # geosite:apple 已覆盖 apple.com / icloud.com / itunes / ls 等子域
-    # 2026-10-16：**三组全部改 DoH**。原来 Apple/icloud 是纯明文、geosite:cn 是「DoH + 明文混列」——
-    #   实测混列时**明文更快、每次都会赢** ⇒ CN 与苹果域名的解析实际走明文 UDP:53（17h 内 3.7 万条）。
-    #   解析器仍是国内同一家（阿里），所以**不改变当初「修证书异常」的结论**，只是把传输加密。
-    #   ⚠️ 注意 `nameserver-policy` **优先级高于** `direct-nameserver` ⇒ 只改后者是不够的。
+    # ⚠️ nameserver-policy 优先级高于 direct-nameserver，只改后者无效
     'geosite:apple':
       - https://223.5.5.5/dns-query
     '+.icloud.com':
       - https://223.5.5.5/dns-query
-    # 国内域名：统一 DoH（原来混列明文 ⇒ 明文会赢）
     'geosite:cn':
       - https://223.5.5.5/dns-query
-
-  # 2026-10-19：删掉 fallback / fallback-lazy-query / fallback-filter（依据官方文档 config/dns/）。
-  #   原因：原来的 fallback 与上面的 nameserver 是**同一组**（1.1.1.1 + 8.8.8.8）⇒ 判污染后结果不变；
-  #   而 fallback-lazy-query 下，境外域名会把同一组服务器再查一遍，纯多一次往返。
-  #   nameserver 本身是加密 DoH，没有被投毒的前提 ⇒ 这层 fallback 没有意义。
-  #   要恢复：写一组真正不同的解析器（例如 tls://9.9.9.9），再补 fallback-filter。
 
   fake-ip-filter:
     - '+.521989.xyz'           # 【个人定制区】自建加速站 / 仓库域名
@@ -190,15 +105,12 @@ dns:
     - '+.msftconnecttest.com'
     - '+.msftncsi.com'
     - 'speedtest.net'
-    # 苹果（+.apple.com 已覆盖 captive.apple.com / push / itunes / ls 子域）
     - '+.apple.com'
     - '+.icloud.com'
-    # 微信 / 腾讯生态
     - '+.weixin.com'
     - '+.wechat.com'
     - '+.qq.com'
     - '+.tencent.com'
-    # 抖音 / 字节跳动
     - '+.douyin.com'
     - '+.douyincdn.com'
     - '+.douyinpic.com'
@@ -207,50 +119,19 @@ dns:
     - '+.zijieapi.com'
     - '+.byteimg.com'
     - '+.ibytedtos.com'
-    # 钉钉 / 阿里
     - '+.dingtalk.com'
     - '+.dingtalkapps.com'
     - '+.laiwang.com'
     - '+.alicdn.com'
     - '+.tbcdn.cn'
-    # 企业自用域名【个人定制区】
     - '+.megarobo.com'
     - '+.megarobo.tech'
     - '+.megarobo.info'
 
-# ------------------------------------------------------------------------------
-# 6. 节点来源 —— iOS 上交给 App 管理，本文件保持空
-# ------------------------------------------------------------------------------
-# Clash iOS 端把「配置」与「节点」分开管：本文件当配置用（分组 + 规则），节点在
-# App 的「节点来源」里单独加（订阅 / 单节点 / 本地节点集），可挂多个、随时开关。
-# 所以 `proxies: []` 保持空即可 —— 把节点写进文件，反而每次换订阅都要改配置。
-#
-# 分组为什么能吃到 App 挂上来的节点：第 7 节的组用 `include-all: true`，它会把
-# proxies 与 proxy-providers 里的一切都收进组。内核支持三种写法：
-#   include-all            收 proxies + providers   ← 本文件用这个
-#   include-all-proxies    只收 proxies
-#   include-all-providers  只收 providers
-#   也可以用 `use: [名称]` 点名引用某个 provider。
-# 于是加节点 / 换订阅 / 开关某个节点源，都不用动本文件。
+# ===== 6. 节点来源 =====
 proxies: []
 
-# 桌面 mihomo（Clash Verge 等）没有 App 那套「节点来源」，要在文件里自己配订阅时，
-# 才取消下面这段并填自己的地址。iOS 上不需要；填了的话别再推到公开仓库。
-# proxy-providers:
-#   Primary-VPS:
-#     type: http
-#     url: "https://你的订阅地址"
-#     path: ./providers/primary.yaml
-#     interval: 43200          # 12 小时更新一次
-#     health-check:
-#       enable: true
-#       url: http://www.gstatic.com/generate_204
-#       interval: 300
-#       lazy: true
-
-# ------------------------------------------------------------------------------
-# 7. 策略组（只在「手动选择 / 自动选择」上用 include-all，节点 / 订阅怎么变都不用改这里）
-# ------------------------------------------------------------------------------
+# ===== 7. 策略组 =====
 proxy-groups:
   - name: 节点选择
     type: select
@@ -262,8 +143,6 @@ proxy-groups:
   - name: 手动选择
     type: select
     include-all: true
-    # 机场会把「剩余流量 / 套餐到期 / 距离下次重置剩余」这类公告塞成假节点，
-    # 它们测速还能"通过"，一旦被自动选择选中就是废出口（只返回一个说明页）。这里按名字滤掉。
     exclude-filter: '(?i)(剩余|到期|重置|官网|订阅|流量|距离|套餐|过期|expire|traffic|website|通知)'
 
   - name: 自动选择
@@ -281,10 +160,7 @@ proxy-groups:
       - DIRECT
       - 节点选择
 
-
-# ------------------------------------------------------------------------------
-# 8. 远程规则集（公开大表用 MRS 二进制；自建小表用 classical 文本；都走加速前缀）
-# ------------------------------------------------------------------------------
+# ===== 8. 远程规则集 =====
 rule-providers:
   BlockHttpDNS:
     type: http
@@ -294,25 +170,13 @@ rule-providers:
     url: https://git.521989.xyz/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/httpdns.mrs
     path: ./rules/httpdns.mrs
 
-  # 名字按来源定：217heidai/adblockfilters 的 mihomo 版**精简表**（adblockmihomolite.mrs）
   AdBlockMihomoLite:
     type: http
     behavior: domain
     format: mrs
     interval: 28800     # 上游 217heidai/adblockfilters 每 8h 重建一次
-    # 换源史（**名字一直跟源走**，所以名字也跟着改）：
-    #   2026-10-14：原 MetaCubeX geosite `category-ads-all`（实测只有 902 条）→ **lite**（8,428 条，上游浮动）。
-    #   2026-10-15 凌晨：owner 反馈"Clash 的拦截效果差很多" ⇒ 换成**完整版**（233,137 条）。
-    #   2026-10-15（owner 真机试用后）⇒ **换回 lite**：「大表效果不明显」——
-    #     App 侧广告已由自建三表（ByteDanceAd / SoulAd / RejectCustom，301 条，抓包驱动）覆盖，
-    #     完整表多出来的覆盖面在实际使用中看不出差别，不值得多背 2.2 MB + 每 8h 一次全量下载。
-    # ✅ 真机实测（2026-10-15 01:25，App「内核运行时」页，挂完整版时）：**内存占用 21.1 MB**
-    #   （挂 lite 时 20.8 MB ⇒ **只 +0.3 MB**）⇒ **两张表内存上都毫无压力**，
-    #   所以选型该按「效果 / 体积」定，不按内存。50 MB 上限下都安全。
-    #   ⚠️ 教训：先前用本机 Linux mihomo v1.19.32 的 **RSS** 估算（+19.8 MB、预计 ~40 MB）**高估了约 6 倍** ——
-    #   Linux RSS 含 Go 未归还的堆页，而 iOS 那份比的指标是 App 的「内存占用」，加上 `with_low_memory`
-    #   内核的 trim/shed，真实增量只有 ~3 MB。**以后这类判断必须真机读那个页。**
-    # ✅ 要再换回完整版：url / path 换成 adblockmihomo.mrs + 名字改 `AdBlockMihomo`（规则行同步改），一行级回滚。
+    # ⚠️ MRS 体积以真机 footprint 为准；本机 RSS 估算偏大（实际增量 ~3 MB）
+    # 要换回完整版：url/path 指向 adblockmihomo.mrs，名字改 AdBlockMihomo
     url: https://git.521989.xyz/https://raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblockmihomolite.mrs
     path: ./rules/adblockmihomolite.mrs
 
@@ -324,11 +188,6 @@ rule-providers:
     url: https://git.521989.xyz/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/tesla.mrs
     path: ./rules/tesla.mrs
 
-  # 原 `Gemini`（blackmatrix7 classical 文本表）已于 2026-10-14 删除，理由见 [Rule] 里那段注释。
-
-  # ---- 自建拦截表（shadowrocket-adr-rules 的 clash-ios 分支，已去掉策略列）----
-  # 为什么不用 MRS：iOS 内核的 MRS 只支持 domain / ipcidr 两种 behavior，装不下混合类型
-  # （详见该分支 mihomo/README.md）。这三张表共 304 条，也用不上 MRS 的性能收益。
   ByteDanceAd:
     type: http
     behavior: classical
@@ -353,8 +212,6 @@ rule-providers:
     url: "https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/shadowrocket-adr-rules/clash-ios/mihomo/reject-custom.list"
     path: ./rules/reject-custom.list
 
-  # ---- 自建直连表（同源：shadowrocket-adr-rules 的 clash-ios 分支）----
-  # 手工区 + 自动区共 122 条，与 Shadowrocket 那份 direct-custom.list 是同一张表。
   DirectCustom:
     type: http
     behavior: classical
@@ -363,11 +220,6 @@ rule-providers:
     url: "https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/shadowrocket-adr-rules/clash-ios/mihomo/direct-custom.list"
     path: ./rules/direct-custom.list
 
-  # 2026-10-20：按 blackmatrix7 的三分法把自建表拆成「广告 / 隐私」两张（通用类）。
-  #   ads-custom：通用广告域（日志挖掘 + bmk Advertising 判定）
-  #   privacy-custom：埋点/统计/上报（默认 REJECT；想全部放行就把下面那条 RULE-SET 的
-  #                   动作改成「国内直连」——一行切换，不用改表）
-  # 两张表都是 mihomo classical 格式（无策略列），因此直接读 main 分支，不经 clash-ios 同步。
   AdsCustom:
     type: http
     behavior: classical
@@ -383,22 +235,11 @@ rule-providers:
     url: "https://git.521989.xyz/https://raw.githubusercontent.com/henrysha1989/shadowrocket-adr-rules/main/privacy-custom.list"
     path: ./rules/privacy-custom.list
 
-# ------------------------------------------------------------------------------
-# 9. 分流规则（命中即停，顺序 = 优先级）
-# ------------------------------------------------------------------------------
+# ===== 9. 分流规则 =====
 rules:
-  # 编号说明：原「1. HttpDNS 拦截」已于 2026-10-20 下移到「4a」（必须在 DirectCustom 之后），
-  # 其余节号保持原样，避免大改注释。
-  # ===== 2. WebRTC 穿透截断（按域名，不按端口）=====
-  # 2026-10-17 改：删掉 DST-PORT,3478 / DST-PORT,5349 两条。
-  #   按端口拦不看域名，会误伤国内 P2P 语音 —— 实测 5 份日志里
-  #   twns.p2ptun.qq.com:3478（微信/QQ 语音）、vc-mirror.ndcpp.com:3478（字节视频通话）都被命中，
-  #   而真正该拦的 WebRTC 只有 stun.services.mozilla.com（含 "stun"，靠下面的关键字规则仍能拦住）。
-  # ⚠ 代价：直接对裸 IP:3478 建连、域名不含 stun/turn 的客户端拦不住（15 万条命中里未出现过）。
   - DOMAIN-KEYWORD,stun,REJECT
   - DOMAIN-KEYWORD,turn,REJECT
 
-  # ===== 3. 内网、本机与自建服务直连 =====
   - GEOSITE,private,国内直连
   - GEOIP,LAN,国内直连,no-resolve
   - IP-CIDR,192.168.0.0/16,国内直连,no-resolve
@@ -407,14 +248,8 @@ rules:
   - IP-CIDR,127.0.0.0/8,国内直连,no-resolve
   - DOMAIN-SUFFIX,521989.xyz,国内直连      # 【个人定制区】
 
-  # ===== 4. 国内专项直连 =====
   - RULE-SET,Tesla,国内直连
   - GEOSITE,apple@cn,国内直连
-  # 2026-10-24：苹果广告 SDK 会落到下面 apple.com 直连兜底里（10-23 实测 ca.iadsdk.apple.com 被直连 21 次，
-  # 只有 CNAME 变体 ...akadns.net 被 AdsCustom 拦到；10-24 又见 cf.iadsdk.apple.com）
-  # ⇒ 用后缀拦整个 iadsdk 子域，放在通用后缀之前。apple.com 其它子域仍直连。
-  # 2026-11-04 漏网审计：iadsdk 会 CNAME 到第三方 CDN（iadsdk.qtlcdn.com / ca.iadsdk.apple.com.w.cdngslb.com），
-  # 精确后缀拦不住 CNAME 目标，改用 keyword 收口（实测这两类各逃逸 3 / 2 次）。
   - DOMAIN-KEYWORD,iadsdk,REJECT
   - DOMAIN-SUFFIX,iadsdk.apple.com,REJECT
   - DOMAIN-SUFFIX,apple.com,国内直连        # geosite 分类漏网时兜底（含 itunes 等子域）
@@ -423,83 +258,28 @@ rules:
   - DOMAIN-SUFFIX,dingtalk.com,国内直连
   - DOMAIN-SUFFIX,dingtalkapps.com,国内直连
   - DOMAIN-SUFFIX,laiwang.com,国内直连
-  # 公司核心业务系统（megarobo.*）与抖音/腾讯等实测需直连的域，统一走自建直连表
-  # （与 Shadowrocket 那份 direct-custom.list 同源，改表两端同时生效）
-  # 2026-11-04 漏网审计：DirectCustom 里的 DOMAIN-SUFFIX,ecombdapi.com,DIRECT（10-21 修小黄车时加的）
-  # 排在这一行之前，把 ByteDanceAd 表里 24 条 ecombdapi 子域规则全压死。其中 23 条本就是电商 API、
-  # 需要直连，只有「联盟」那几条是广告 ⇒ 只把联盟端单点提到直连表之前，其余一律不动（免得小黄车再坏）。
   - DOMAIN-KEYWORD,lianmengapi,REJECT
   - RULE-SET,DirectCustom,国内直连
-  # 自建通用广告表（2026-10-20 日志挖掘产出，263 条）
   - RULE-SET,AdsCustom,REJECT
-  # 自建隐私/遥测表（114 条）。想「少重试」就把这一行改成：- RULE-SET,PrivacyCustom,国内直连
   - RULE-SET,PrivacyCustom,REJECT
 
-  # ===== 4a. HttpDNS 拦截（2026-10-20 从第 1 节下移）=====
-  # 原先它在所有规则之前，导致 DirectCustom 里放行的 HTTPDNS 域永远轮不到（实测 dns.weixin.qq.com.cn
-  # 6.9 小时内被 BlockHttpDNS 拦了 329 次 —— 白名单形同虚设）。
-  # 现在放在 DirectCustom 之后：显式放行的放行，其它 HTTPDNS 端点仍然拦（仍早于广告表）。
   - RULE-SET,BlockHttpDNS,REJECT
 
-  # ===== 4b. （2026-10-19 撤销：内联域已归位到自建表）=====
-  # 原先这里有 5 条内联 REJECT（10-18 为治重试风暴临时加的，后来从 REJECT-DROP 改回 REJECT）。
-  # 10-19 按「策略规则进自建表、配置只留 RULE-SET 引用」的维护约定清点，覆盖情况：
-  #   · jspcdn.cn / rtlog3-applog-hl.amemv.com / ads5-normal-lf.zijieapi.com → 已被 lite 表(AdBlockMihomoLite)覆盖；
-  #   · log5-applog-lf.fqnovel.com → 已在 bytedance-ad.list（自建表）；
-  #   · rtlog5-applog-hl.amemv.com → 哪都没有，已补进 bytedance-ad.list（main，10-19）。
-  # 所以本节整段删除；以后同类域一律进 shadowrocket-adr-rules@main 的自建表，不写内联。
-  # 注：REJECT-DROP 已在 10-19 全部改回 REJECT（mihomo 下 DROP 不降重试，只挂连接）。
-
-  # ===== 5. 广告拦截 =====
-  # ⚠ 2026-10-17 调整顺序：本节原先排在 GEOSITE,category-entertainment-cn 之后。
-  #   实测该分类是「国内娱乐」大杂烩，抖音/红果系域名大量在里面 ⇒ 它们先被直连放行，
-  #   四个广告表根本没机会执行。五份日志（10-16~10-17）实测：
-  #     · 红果 246 个放行主机里 **189 个 / 4,660 次请求** 是被该分类放行的；
-  #     · 「表里明明有却被放行」共 31 个主机，其中 16 个是被它抢先。
-  #   ⇒ 现改为：四个广告表在前，category-entertainment-cn 挪到本节之后（见第 6 节）。
-  #   这一段是 AdGuard 中文 + EasyList China + anti-AD 等的合并表，比原 geosite category-ads-all 激进；
-  #   仍排在 GEOSITE,CN / GEOIP,CN 之前，否则 CN 广告域会被国内兜底放走。
-  # ⚠ DirectCustom 仍刻意留在本节之前（自家域 / 公司系统优先，避免误拦）。
-  #   实测它与四个广告表 304 条**重合 0 条**，顺序对它无影响（2026-10-17 后直连表 130 条，含 11 条误拦放行）；
-  #   代价是挂在直连父域下的广告子域（实测 12 个）仍会放行 —— 有意取舍，要收需改 DirectCustom 粒度。
-  # 来源：shadowrocket-adr-rules 的 clash-ios 分支（main 三张表去掉策略列生成）。
-  # 动作用 REJECT：小火箭那边必须写 REJECT-DROP 是它的 SDK 重连问题，mihomo 没这毛病；
-  # 真要静默丢包，把这几行的 REJECT 改成 REJECT-DROP 即可。
+  # ⚠️ 动作用 REJECT；小火箭那边必须 REJECT-DROP（SR SDK 会秒级重连）
   - RULE-SET,AdBlockMihomoLite,REJECT
   - RULE-SET,ByteDanceAd,REJECT
   - RULE-SET,SoulAd,REJECT
   - RULE-SET,RejectCustom,REJECT
 
-  # ===== 6. 国内娱乐分类直连（原在第 4 节末，2026-10-17 挪到广告表之后）=====
-  # ⚠ 它是「国内娱乐」大杂烩分类，含大量字节系域名；放回广告表之前会让广告表对它们失效。
   - GEOSITE,category-entertainment-cn,国内直连
 
-  # ===== 7. 泄漏测试工具走代理 =====
   - DOMAIN-KEYWORD,browserleaks,节点选择
   - DOMAIN-KEYWORD,ipleak,节点选择
 
-  # 原 Gemini 规则集已于 2026-10-14 删除（owner 指令）：它 13 条里 10 条域名/后缀规则
-  # 本就被 GEOSITE,google 覆盖（含 +.google.com / +.googleapis.com / +.googleusercontent.com 等），
-  # 剩下 3 条 DOMAIN-KEYWORD（colab / developerprofiles / generativelanguage）对应的真实主机
-  # （generativelanguage.googleapis.com、colab.*.googleusercontent.com、
-  # developerprofiles-pa.clients6.google.com）也全在 GEOSITE,google 的覆盖内 ⇒ 删掉零损失，
-  # 且不再依赖 blackmatrix7 那张表（它历史上正是「TLS 错误导致安全连接失败」的来源）。
-  # 两条 DOMAIN-SUFFIX 兜底（gemini.google.com / aistudio.google.com）同样由 GEOSITE,google 覆盖。
-  # AI 段目前为空：要接别的厂商（OpenAI / Claude / Perplexity…）时在这里加规则。
-
-  # ===== 7b. 强切 TCP（QUIC / UDP-443）=====
-  # 目的（2026-09-29 owner 定案）：掐掉 QUIC 逼 Chrome/YouTube 回落 TCP —— 机场节点的 UDP 中继
-  #   普遍不如 TCP 稳。小火箭用 `block-quic = all-proxy`、桌面用同样两条 AND 规则 ⇒ 三端对齐。
-  # ⚠️ **国内目标豁免必须在前面、且用 IP 判据**：09-29 两次翻车都是因为拿域名判据豁免钉钉
-  #   （钉钉自己走 DoH 拿真实 IP，域名还原不出来）⇒ 漏豁免就会报「网络连接异常」。
-  #   若钉钉 / 会议类 App 出现网络异常，第一嫌疑就是下面第二条 ⇒ 注释掉即可回滚。
-  # 代价：只影响 UDP/443（实测占全部连接 ~1.3%）；QUIC 的 0-RTT / 无队头阻塞优势在代理链路上本就打折。
-  # 2026-11-14 变更：owner 的机场以 HY2（UDP 原生）为主且实测好用，实验性放行客户端 QUIC；
-  #   若重现「代理静默失效 / 扩展被系统杀掉」，先看 MetricKit 的 writesCaused，再恢复上面 REJECT 一行。
+  # ⚠️ 7b：国内豁免必须在前面、且用 IP 判据（钉钉走 DoH，域名判据救不回）
+  #    钉钉 / 会议类 App 出现异常 → 注释掉下面第二条即可回滚
   - AND,((NETWORK,UDP),(DST-PORT,443),(GEOIP,CN)),DIRECT
-  # - AND,((DST-PORT,443),(NETWORK,UDP)),REJECT   # 2026-11-14 放行 QUIC（实验）；恢复时去掉本行注释
 
-  # ===== 8. 海外专项 =====
   - GEOSITE,youtube,节点选择
   - GEOSITE,google,节点选择
   - GEOSITE,telegram,节点选择
@@ -510,16 +290,10 @@ rules:
   - DOMAIN-SUFFIX,protonmail.com,节点选择
   - DOMAIN-SUFFIX,pinterest.com,节点选择
 
-  # Telegram DC 网段：防纯域名解析被直连拖到转圈
-  # 91.108.0.0/18 一次覆盖原来的 4/8/12/16/56 五个 /22
   - IP-CIDR,91.108.0.0/18,节点选择,no-resolve
   - IP-CIDR,149.154.160.0/20,节点选择,no-resolve
 
-  # ===== 9. 国内兜底 =====
   - GEOSITE,CN,国内直连
   - GEOIP,CN,国内直连,no-resolve
 
-  # ===== 10. 未命中流量兜底 =====
-  # 原「漏网之鱼」组已删（默认就是节点选择，纯冗余间接层）；要临时把未知流量扔直连，
-  # 直接在「节点选择」里选 DIRECT 即可（代价是全局都直连，不再区分未知流量）。
   - MATCH,节点选择
